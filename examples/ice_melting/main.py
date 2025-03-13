@@ -67,7 +67,7 @@ class Sampler:
         data = shifted_grid(
             self.mins,
             self.maxs,
-            [self.n_samples, self.n_samples, self.n_samples // 2, self.n_samples * 2],
+            [self.n_samples, self.n_samples, self.n_samples, self.n_samples * 2],
             key,
         )
         return data[:, :-1], data[:, -1:]
@@ -77,7 +77,7 @@ class Sampler:
         batch = shifted_grid(
             self.mins,
             self.maxs,
-            [self.n_samples, self.n_samples, self.n_samples // 2, self.n_samples * 2],
+            [self.n_samples, self.n_samples, self.n_samples, self.n_samples * 2],
             key,
         )
 
@@ -100,101 +100,13 @@ class Sampler:
             num=4000,
             key=key,
         )
-        x_local = lhs_sampling(
-            mins=[-0.2, -0.2, 0],
-            maxs=[
-                0.2,
-                0.2,
-                0.2,
-            ],
-            num=4000,
-            key=self.key,
-        )
-        x = jnp.concatenate([x, x_local], axis=0)
         t = jnp.zeros_like(x[:, 0:1])
         return x, t
-
-    def sample_bc(self):
-        key, self.key = random.split(self.key)
-
-        xyzts = lhs_sampling(
-            mins=[-0.05, -0.05, 0, self.domain[3][0]],
-            maxs=[0.05, 0.05, 0.05, self.domain[3][1]],
-            num=self.n_samples**2 * 5,
-            key=key,
-        )
-        yzts = lhs_sampling(
-            mins=[self.domain[1][0], self.domain[2][0], self.domain[3][0]],
-            maxs=[self.domain[1][1], self.domain[2][1], self.domain[3][1]],
-            num=self.n_samples * 5,
-            key=key,
-        )
-        xmin_yzts = jnp.concatenate(
-            [
-                jnp.full((yzts.shape[0], 1), self.domain[0][0]),
-                yzts,
-            ],
-            axis=1,
-        )
-        xmax_yzts = jnp.concatenate(
-            [
-                jnp.full((yzts.shape[0], 1), self.domain[0][1]),
-                yzts,
-            ],
-            axis=1,
-        )
-        xzts = lhs_sampling(
-            mins=[self.domain[0][0], self.domain[2][0], self.domain[3][0]],
-            maxs=[self.domain[0][1], self.domain[2][1], self.domain[3][1]],
-            num=self.n_samples * 5,
-            key=key,
-        )
-        ymin_xzts = jnp.concatenate(
-            [
-                xzts[:, 0:1],
-                jnp.full((xzts.shape[0], 1), self.domain[1][0]),
-                xzts[:, 1:],
-            ],
-            axis=1,
-        )
-        ymax_xzts = jnp.concatenate(
-            [
-                xzts[:, 0:1],
-                jnp.full((xzts.shape[0], 1), self.domain[1][1]),
-                xzts[:, 1:],
-            ],
-            axis=1,
-        )
-        xyts = lhs_sampling(
-            mins=[self.domain[0][0], self.domain[1][0], self.domain[3][0]],
-            maxs=[self.domain[0][1], self.domain[1][1], self.domain[3][1]],
-            num=self.n_samples * 5,
-            key=key,
-        )
-        # zmin_xyts = jnp.concatenate([
-        #     xyts[:, 0:2],
-        #     jnp.full((xyts.shape[0], 1), self.domain[2][0]),
-        #     xyts[:, 2:],
-        # ], axis=1)
-        zmax_xyts = jnp.concatenate(
-            [
-                xyts[:, 0:2],
-                jnp.full((xyts.shape[0], 1), self.domain[2][1]),
-                xyts[:, 2:],
-            ],
-            axis=1,
-        )
-
-        data = jnp.concatenate(
-            [xmin_yzts, xmax_yzts, ymin_xzts, ymax_xzts, zmax_xyts, xyzts], axis=0
-        )
-        return data[:, :-1], data[:, -1:]
 
     def sample(self, pde_name="ac"):
         return (
             self.sample_pde_rar(pde_name=pde_name),
             self.sample_ic(),
-            self.sample_bc(),
             self.sample_pde(),
         )
 
@@ -228,40 +140,62 @@ class PFPINN(PINN):
         self.loss_fn_panel = [
             self.loss_pde,
             self.loss_ic,
-            self.loss_bc,
             self.loss_irr,
         ]
-        
+
     @partial(jit, static_argnums=(0,))
-    def ref_sol_bc(self, x, t):
-        # x: (x1, x2)
-        r = jnp.sqrt(x[:, 0] ** 2 + x[:, 1] ** 2 + x[:, 2] ** 2)
-        phi = jnp.where(r < 0.10, 0, 1)
-        c = jnp.where(r < 0.10, 0, 1)
-        sol = jnp.stack([phi, c], axis=1)
-        return jax.lax.stop_gradient(sol)
+    def net_u(self, params, x, t):
+        return jax.nn.tanh(self.model.apply(params, x, t))
+
+    @partial(jit, static_argnums=(0,))
+    def net_pde(self, params, x, t):
+        """
+        $$
+        \frac{\partial \phi}{\partial t} = M\left(
+            \Delta \phi - \frac{F'(\phi)}{\epsilon^2}
+        \right) - \lambda \frac{\sqrt{2F(\phi)}}{\epsilon}
+        $$
+        """
+        phi = self.net_u(params, x, t)
+        dphi_dt = jax.jacrev(self.net_u, argnums=2)(params, x, t)[0]
+        hess_x = jax.hessian(self.net_u, argnums=1)(params, x, t)
+        lap_phi = jnp.linalg.trace(hess_x)
+
+        Fphi = 0.25 * (phi**2 - 1) ** 2
+        dFdphi = phi**3 - phi
+
+        pde = (
+            dphi_dt
+            - self.cfg.MM(lap_phi - dFdphi / self.cfg.EPSILON**2)
+            + self.cfg.LAMBDA * jnp.sqrt(2 * Fphi) / self.cfg.EPSILON
+        )
+        return pde
 
     @partial(jit, static_argnums=(0,))
     def ref_sol_ic(self, x, t):
         r = jnp.sqrt(x[:, 0] ** 2 + x[:, 1] ** 2 + x[:, 2] ** 2)
-        phi = (
-            1
-            - (
-                1
-                - jnp.tanh(
-                    jnp.sqrt(cfg.OMEGA_PHI)
-                    / jnp.sqrt(2 * cfg.ALPHA_PHI)
-                    * (r - 0.10)
-                    * cfg.Lc
-                )
-            )
-            / 2
-        )
-        h_phi = -2 * phi**3 + 3 * phi**2
-        c = h_phi * cfg.CSE + (1 - h_phi) * 0.0
-        sol = jnp.stack([phi, c], axis=1)
-        return jax.lax.stop_gradient(sol)
+        phi = jnp.tanh((self.cfg.R0 - r) / (jnp.sqrt(2) * self.cfg.EPSILON))
+        return phi
+    
+    @partial(jit, static_argnums=(0,))
+    def net_speed(self, params, x, t):
+        dphi_dt = jax.jacrev(self.net_u, argnums=2)(params, x, t)[0]
+        return dphi_dt
 
+    @partial(jit, static_argnums=(0,))
+    def loss_irr(self, params, batch):
+        x, t = batch
+        dphi_dt = vmap(self.net_speed, in_axes=(None, 0, 0))(params, x, t)
+        return jnp.mean(jax.nn.relu(dphi_dt))
+    
+    
+    
+
+    
+    
+    
+    
+    
 
 pinn = PFPINN(config=cfg)
 

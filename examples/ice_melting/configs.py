@@ -1,10 +1,11 @@
 """
 Sharp-PINNs for pitting corrosion with 2d-1pit
 """
+import math
 
 class Config:
     EPOCHS = 100000
-    N_SAMPLES = 20
+    N_SAMPLES = 30
     ADAPTIVE_SAMPLES = 8000
     ADAPTIVE_BASE_RATE = 5
     LR = 5e-4
@@ -14,7 +15,7 @@ class Config:
     EMB_SCALE = (1.5, 2.0) # emb sacle for (x, t)
     EMB_DIM = 64
 
-    DOMAIN = ((-0.5, 0.5), (-0.5, 0.5), (0, 0.5), (0, 1.0))
+    DOMAIN = ((-50, 50), (-50, 50), (-50, 50), (0, 1.5))
     DATA_PATH = "./data/3d-1pit/"
     LOG_DIR = "/root/tf-logs"
     PREFIX = "3d-1pit"
@@ -30,18 +31,16 @@ class Config:
     FOURIER_EMB = True
     CAUSAL_WEIGHT = True
 
-    ALPHA_PHI = 1.03e-4
-    OMEGA_PHI = 1.76e7
-    MM = 7.94e-18
-    DD = 8.5e-10
-    AA = 5.35e7
-    LP = 2.0
-    CSE = 1.0
-    CLE = 5100 / 1.43e5
+    LAMBDA = 5
+    NN = 128
+    HH = 100 / NN
+    EPSILON = 6*HH / (2*math.sqrt(2) * math.atanh(0.9))
+    MM = 0.1
+    R0 = 35
 
 
-    Lc = 1e-4
-    Tc = 10.0
+    Lc = 1
+    Tc = 1
     AC_PRE_SCALE = 1e6
     CH_PRE_SCALE = 1e0
 
