@@ -136,13 +136,13 @@ class PINN(nn.Module):
             x, t
         )[idx]
         return nabla_phi_part, nabla_c_part
+    
 
     @partial(jit, static_argnums=(0,))
     def loss_pde(self, params, batch, eps):
         x, t = batch
         pde_name = self.pde_name
-        pde_fn = self.net_ac if pde_name == "ac" else self.net_ch
-        res = vmap(pde_fn, in_axes=(None, 0, 0))(params, x, t)
+        res = vmap(self.net_pde, in_axes=(None, 0, 0))(params, x, t)
         if not self.cfg.CAUSAL_WEIGHT:
             return jnp.mean(res**2), {}
         else:

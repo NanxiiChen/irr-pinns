@@ -19,7 +19,7 @@ current_dir = Path(__file__).resolve().parent
 project_root = current_dir.parent.parent
 sys.path.append(str(project_root))
 
-from pf_pinn import *
+from pinn import *
 from examples.ice_melting.configs import Config as cfg
 
 
@@ -85,8 +85,7 @@ class Sampler:
             model = self.adaptive_kw["model"]
             params = self.adaptive_kw["params"]
             x, t = batch[:, :-1], batch[:, -1:]
-            fn = model.net_ac if pde_name == "ac" else model.net_ch
-            return vmap(fn, in_axes=(None, 0, 0))(params, x, t)
+            return vmap(model.net_pde, in_axes=(None, 0, 0))(params, x, t)
 
         adaptive_sampling = self.adaptive_sampling(residual_fn)
         data = jnp.concatenate([batch, adaptive_sampling], axis=0)
@@ -149,15 +148,8 @@ class PFPINN(PINN):
 
     @partial(jit, static_argnums=(0,))
     def net_pde(self, params, x, t):
-        """
-        $$
-        \frac{\partial \phi}{\partial t} = M\left(
-            \Delta \phi - \frac{F'(\phi)}{\epsilon^2}
-        \right) - \lambda \frac{\sqrt{2F(\phi)}}{\epsilon}
-        $$
-        """
         phi = self.net_u(params, x, t)
-        dphi_dt = jax.jacrev(self.net_u, argnums=2)(params, x, t)[0]
+        dphi_dt = jax.jacrev(self.net_u, argnums=2)(params, x, t)
         hess_x = jax.hessian(self.net_u, argnums=1)(params, x, t)
         lap_phi = jnp.linalg.trace(hess_x)
 
@@ -166,10 +158,10 @@ class PFPINN(PINN):
 
         pde = (
             dphi_dt
-            - self.cfg.MM(lap_phi - dFdphi / self.cfg.EPSILON**2)
+            - self.cfg.MM * (lap_phi - dFdphi / self.cfg.EPSILON**2)
             + self.cfg.LAMBDA * jnp.sqrt(2 * Fphi) / self.cfg.EPSILON
         )
-        return pde
+        return pde.squeeze()
 
     @partial(jit, static_argnums=(0,))
     def ref_sol_ic(self, x, t):
@@ -188,14 +180,90 @@ class PFPINN(PINN):
         dphi_dt = vmap(self.net_speed, in_axes=(None, 0, 0))(params, x, t)
         return jnp.mean(jax.nn.relu(dphi_dt))
     
-    
-    
 
+
+def evaluate3D(pinn, params, mesh, ref_path, ts, **kwargs):
+    fig, axes = plt.subplots(
+        len(ts),
+        2,
+        figsize=(10, 3 * len(ts)),
+        subplot_kw={"projection": "3d", "box_aspect": (1, 1, 1)},
+    )
     
-    
-    
-    
-    
+    xlim = kwargs.get("xlim", (-0.5, 0.5))
+    ylim = kwargs.get("ylim", (0, 0.5))
+    zlim = kwargs.get("zlim", (-0.5, 0.5))
+    Lc = kwargs.get("Lc", 1e-4)
+    Tc = kwargs.get("Tc", 10.0)
+
+    error = 0
+    mesh /= Lc
+    mesh = mesh[::10]
+    for idx, tic in enumerate(ts):
+        t = jnp.ones_like(mesh[:, 0:1]) * tic / Tc
+        pred = vmap(lambda x, t: pinn.net_u(params, x, t)[0], in_axes=(0, 0))(
+            mesh, t
+        ).reshape(mesh.shape[0], 1)
+
+        ax = axes[idx, 0]
+        # interface_idx = jnp.where((pred > 0.05) & (pred < 0.95))[0]
+        interface_idx = jnp.where((pred > -0.5) & (pred < 0.5))[0]
+        ax.scatter(
+            mesh[interface_idx, 0],
+            mesh[interface_idx, 1],
+            mesh[interface_idx, 2],
+            c=pred[interface_idx, 0],
+            cmap="coolwarm",
+            label="phi",
+            vmin=0,
+            vmax=1,
+        )
+        ax.set(
+            xlabel="x",
+            ylabel="y",
+            zlabel="z",
+            title=f"t={tic}",
+            xlim=xlim,
+            ylim=ylim,
+            zlim=zlim,
+        )
+        ax.set_axis_off()
+        # reverse z axis
+        ax.invert_zaxis()
+        
+        ref_sol = jnp.load(f"{ref_path}/sol-{tic:.4f}.npy")[::10]
+        diff = jnp.abs(pred - ref_sol)
+        interface_idx = jnp.where((diff > 0.1))[0]
+        ax = axes[idx, 1]
+        error_bar = ax.scatter(
+            mesh[interface_idx, 0],
+            mesh[interface_idx, 1],
+            mesh[interface_idx, 2],
+            c=jnp.abs(pred[interface_idx] - ref_sol[interface_idx]),
+            cmap="coolwarm",
+            label="error",
+        )
+        ax.set(
+            xlabel="x",
+            ylabel="y",
+            zlabel="z",
+            title=f"t={tic}",
+            xlim=xlim,
+            ylim=ylim,
+            zlim=zlim,
+        )
+        # colorbar for error
+        plt.colorbar(error_bar, ax=ax)
+        error += jnp.mean(diff ** 2)
+        
+        ax.set_axis_off()
+        ax.invert_zaxis()
+        
+    plt.tight_layout()
+    error /= len(ts)
+    return fig, error
+
+
 
 pinn = PFPINN(config=cfg)
 
@@ -219,8 +287,8 @@ sampler = Sampler(
         "num": cfg.ADAPTIVE_SAMPLES,
     },
 )
-stagger = StaggerSwitch(pde_names=["ac", "ch"], stagger_period=cfg.STAGGER_PERIOD)
-
+stagger = StaggerSwitch(pde_names=["ac"], stagger_period=cfg.STAGGER_PERIOD)
+error = 0
 start_time = time.time()
 for epoch in range(cfg.EPOCHS):
     pde_name = stagger.decide_pde()
@@ -233,7 +301,7 @@ for epoch in range(cfg.EPOCHS):
         print(f"Epoch: {epoch}, PDE: {pde_name}")
 
     state, (weighted_loss, loss_components, weight_components, aux_vars) = train_step(
-        state, batch, cfg.CAUSAL_CONFIGS[pde_name + "_eps"]
+        state, batch, cfg.CAUSAL_CONFIGS["eps"]
     )
     if cfg.CAUSAL_WEIGHT:
         update_causal_eps(aux_vars["causal_weights"], cfg.CAUSAL_CONFIGS, pde_name)
@@ -247,6 +315,7 @@ for epoch in range(cfg.EPOCHS):
         params = jax.device_get(params)
         jnp.savez(model_path, **params)
 
+        # if epoch > 100:
         fig, error = evaluate3D(
             pinn,
             state.params,

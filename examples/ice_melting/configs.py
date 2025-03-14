@@ -5,7 +5,7 @@ import math
 
 class Config:
     EPOCHS = 100000
-    N_SAMPLES = 30
+    N_SAMPLES = 15
     ADAPTIVE_SAMPLES = 8000
     ADAPTIVE_BASE_RATE = 5
     LR = 5e-4
@@ -16,20 +16,20 @@ class Config:
     EMB_DIM = 64
 
     DOMAIN = ((-50, 50), (-50, 50), (-50, 50), (0, 1.5))
-    DATA_PATH = "./data/3d-1pit/"
+    DATA_PATH = "./data/ice-melting/"
     LOG_DIR = "/root/tf-logs"
-    PREFIX = "3d-1pit"
-    TS = [0.000, 1.968, 6.401, 9.357]
+    PREFIX = "ice-melting"
+    TS = [0.000, 0.1271, 0.8182, 1.4183]
 
     NUM_LAYERS = 6
-    HIDDEN_DIM = 128
-    OUT_DIM = 2
+    HIDDEN_DIM = 64
+    OUT_DIM = 1
 
 
     ACT_NAME = "tanh"
-    ARCH_NAME = "modified_mlp"
+    ARCH_NAME = "mlp"
     FOURIER_EMB = True
-    CAUSAL_WEIGHT = True
+    CAUSAL_WEIGHT = False
 
     LAMBDA = 5
     NN = 128
@@ -46,8 +46,7 @@ class Config:
 
 
     CAUSAL_CONFIGS = {
-        "ac_eps": 1e-5,
-        "ch_eps": 1e-5,
+        "eps": 1e-5,
         "step_size": 10,
         "max_last_weight": 0.99,
         "min_mean_weight": 0.5,

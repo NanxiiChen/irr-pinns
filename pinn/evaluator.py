@@ -105,12 +105,12 @@ def evaluate3D(pinn, params, mesh, ref_path, ts, **kwargs):
         len(ts),
         2,
         figsize=(10, 3 * len(ts)),
-        subplot_kw={"projection": "3d", "box_aspect": (2, 2, 1)},
+        subplot_kw={"projection": "3d", "box_aspect": (1, 1, 1)},
     )
-
-    xlim = kwargs.get("xlim", (-0.4, 0.4))
-    ylim = kwargs.get("ylim", ((-0.4, 0.4)))
-    zlim = kwargs.get("zlim", ((0, 0.4)))
+    
+    xlim = kwargs.get("xlim", (-0.5, 0.5))
+    ylim = kwargs.get("ylim", (0, 0.5))
+    zlim = kwargs.get("zlim", (-0.5, 0.5))
     Lc = kwargs.get("Lc", 1e-4)
     Tc = kwargs.get("Tc", 10.0)
 
@@ -147,7 +147,7 @@ def evaluate3D(pinn, params, mesh, ref_path, ts, **kwargs):
         # reverse z axis
         ax.invert_zaxis()
         
-        ref_sol = jnp.load(f"{ref_path}/sol-{tic:.3f}.npy")[:, 0:1]
+        ref_sol = jnp.load(f"{ref_path}/sol-{tic:.4f}.npy")
         diff = jnp.abs(pred - ref_sol)
         interface_idx = jnp.where((diff > 0.05))[0]
         ax = axes[idx, 1]
