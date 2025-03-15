@@ -116,9 +116,23 @@ class PINN(nn.Module):
             grads.append(grad_item)
 
         losses = jnp.array(losses)
-        weights = jnp.array([1.0, 5.0])
-        weights = jax.lax.stop_gradient(weights)
+        # weights = self.grad_norm_weights(grads)
+        weights = jax.lax.stop_gradient(jnp.array([1.0, 5.0]))
         return jnp.sum(weights * losses), (losses, weights)
+    
+    @partial(jit, static_argnums=(0,))
+    def grad_norm_weights(self, grads: list, eps=1e-6):
+        def tree_norm(pytree):
+            squared_sum = sum(jnp.sum(x**2) for x in jax.tree_util.tree_leaves(pytree))
+            return jnp.sqrt(squared_sum)
+
+        grad_norms = jnp.array([tree_norm(grad) for grad in grads])
+
+        grad_norms = jnp.clip(grad_norms, eps, 1 / eps)
+        weights = jnp.mean(grad_norms) / (grad_norms + eps)
+        weights = jnp.nan_to_num(weights)
+        weights = jnp.clip(weights, eps, 1 / eps)
+        return jax.lax.stop_gradient(weights)
 
 
 def evaluate3D(pinn, params, mesh, ref_path, ts, **kwargs):
