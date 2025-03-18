@@ -69,10 +69,7 @@ sampler = Sampler(
 
 
 @jit
-def train_step(
-    state,
-    batch,
-):
+def train_step(state, batch, eps):
     params = state.params
     (weighted_loss, (loss_components, weight_components, aux)), grads = (
         jax.value_and_grad(pinn.loss_fn, has_aux=True, argnums=0)(params, batch)
