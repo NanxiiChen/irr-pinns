@@ -69,24 +69,28 @@ class CausalWeightor:
 
         return fig
 
-
-def update_causal_eps(
-    causal_weight,
-    causal_configs,
-):
-    new_causal_configs = causal_configs.copy()
-    if (
-        causal_weight[-1] > causal_configs["max_last_weight"]
-        and causal_configs["eps"] < causal_configs["max_eps"]
+    def update_causal_eps(
+        self,
+        causal_weight,
+        causal_configs,
     ):
-        new_causal_configs["eps"] = causal_configs["eps"] * causal_configs["step_size"]
-        print(f"Inc. eps to {causal_configs['eps']}")
+        new_causal_configs = causal_configs.copy()
+        if (
+            causal_weight[-1] > causal_configs["max_last_weight"]
+            and causal_configs["eps"] < causal_configs["max_eps"]
+        ):
+            new_causal_configs["eps"] = (
+                causal_configs["eps"] * causal_configs["step_size"]
+            )
+            print(f"Inc. eps to {causal_configs['eps']}")
 
-    if jnp.mean(causal_weight) < causal_configs["min_mean_weight"]:
-        new_causal_configs["eps"] = causal_configs["eps"] / causal_configs["step_size"]
-        print(f"Dec. eps to {causal_configs['eps']}")
+        if jnp.mean(causal_weight) < causal_configs["min_mean_weight"]:
+            new_causal_configs["eps"] = (
+                causal_configs["eps"] / causal_configs["step_size"]
+            )
+            print(f"Dec. eps to {causal_configs['eps']}")
 
-    return new_causal_configs
+        return new_causal_configs
 
 
 if __name__ == "__main__":

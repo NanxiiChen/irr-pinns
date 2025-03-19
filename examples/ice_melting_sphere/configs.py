@@ -30,7 +30,7 @@ class Config:
     ACT_NAME = "tanh"
     ARCH_NAME = "mlp"
     FOURIER_EMB = True
-    CAUSAL_WEIGHT = True
+    CAUSAL_WEIGHT = False
 
     LAMBDA = 5
     NN = 64

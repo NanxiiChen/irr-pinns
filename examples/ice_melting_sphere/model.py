@@ -96,22 +96,20 @@ class PINN(nn.Module):
         return jnp.mean(jax.nn.relu(dphi_dt))
 
     @partial(jit, static_argnums=(0,))
-    def loss_pde(self, params, batch):
+    def loss_pde(self, params, batch, eps):
         x, t = batch
         res = vmap(self.net_pde, in_axes=(None, 0, 0))(params, x, t)
         if not self.cfg.CAUSAL_WEIGHT:
             return jnp.mean(res**2), {}
         else:
             return self.causal_weightor.compute_causal_loss(
-                res, t, self.cfg.CAUSAL_CONFIGS["eps"]
+                res,
+                t,
+                eps,
             )
 
     @partial(jit, static_argnums=(0,))
-    def loss_fn(
-        self,
-        params,
-        batch,
-    ):
+    def loss_fn(self, params, batch, eps):
         losses = []
         grads = []
         for idx, (loss_item_fn, batch_item) in enumerate(
@@ -120,7 +118,7 @@ class PINN(nn.Module):
             if idx == 0:
                 (loss_item, aux), grad_item = jax.value_and_grad(
                     loss_item_fn, has_aux=True, argnums=0
-                )(params, batch_item)
+                )(params, batch_item, eps)
             else:
                 loss_item, grad_item = jax.value_and_grad(loss_item_fn)(
                     params, batch_item

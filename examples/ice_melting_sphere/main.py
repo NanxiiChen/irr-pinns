@@ -19,7 +19,7 @@ current_dir = Path(__file__).resolve().parent
 project_root = current_dir.parent.parent
 sys.path.append(str(project_root))
 
-from pinn import MetricsTracker, CausalWeightor, update_causal_eps
+from pinn import MetricsTracker, CausalWeightor
 from examples.ice_melting_sphere.configs import Config as cfg
 from examples.ice_melting_sphere.model import PINN, Sampler, evaluate3D
 
@@ -72,7 +72,7 @@ sampler = Sampler(
 def train_step(state, batch, eps):
     params = state.params
     (weighted_loss, (loss_components, weight_components, aux)), grads = (
-        jax.value_and_grad(pinn.loss_fn, has_aux=True, argnums=0)(params, batch)
+        jax.value_and_grad(pinn.loss_fn, has_aux=True, argnums=0)(params, batch, eps)
     )
     new_state = state.apply_gradients(grads=grads)
     return new_state, (weighted_loss, loss_components, weight_components, aux)
@@ -89,23 +89,17 @@ for epoch in range(cfg.EPOCHS):
     state, (weighted_loss, loss_components, weight_components, aux) = train_step(
         state,
         batch,
+        cfg.CAUSAL_CONFIGS["eps"],
     )
     if cfg.CAUSAL_WEIGHT:
-        new_causal_configs = update_causal_eps(
-            aux["causal_weights"], cfg.CAUSAL_CONFIGS
+        cfg.CAUSAL_CONFIGS.update(
+            causal_weightor.update_causal_eps(aux["causal_weights"], cfg.CAUSAL_CONFIGS)
         )
-        cfg.CAUSAL_CONFIGS.update(new_causal_configs)
 
     if epoch % cfg.STAGGER_PERIOD == 0:
 
-        # save the model
-        # params = state.params
-        # model_path = f"{log_path}/model-{epoch}.npz"
-        # params = jax.device_get(params)
-        # jnp.savez(model_path, **params)
         ckpt.save(log_path + f"/model-{epoch}", state)
 
-        # if epoch > 100:
         fig, error = evaluate3D(
             pinn,
             state.params,
