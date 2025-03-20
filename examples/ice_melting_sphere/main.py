@@ -11,18 +11,17 @@ import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import optax
+import orbax.checkpoint as ocp
 from flax.training import train_state
 from jax import jit, random
-import orbax.checkpoint as ocp
 
 current_dir = Path(__file__).resolve().parent
 project_root = current_dir.parent.parent
 sys.path.append(str(project_root))
 
-from pinn import MetricsTracker, CausalWeightor
 from examples.ice_melting_sphere.configs import Config as cfg
 from examples.ice_melting_sphere.model import PINN, Sampler, evaluate3D
-
+from pinn import CausalWeightor, MetricsTracker
 
 # from jax import config
 # config.update("jax_disable_jit", True)

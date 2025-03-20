@@ -1,19 +1,15 @@
-from examples.ice_melting_sphere.configs import Config as cfg
-from pinn import *
-import sys
 from functools import partial
-from pathlib import Path
+
 
 import jax
 import jax.numpy as jnp
-from flax import linen as nn
 import matplotlib.pyplot as plt
-from matplotlib.gridspec import GridSpec
+from flax import linen as nn
 from jax import jit, random, vmap
+from matplotlib.gridspec import GridSpec
 
-current_dir = Path(__file__).resolve().parent
-project_root = current_dir.parent.parent
-sys.path.append(str(project_root))
+from examples.ice_melting_sphere.configs import Config as cfg
+from pinn import *
 
 
 class PINN(nn.Module):

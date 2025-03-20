@@ -22,7 +22,6 @@ sys.path.append(str(project_root))
 from pf_pinn import *
 from examples.corrosion3d1pit.configs import Config as cfg
 
-
 # from jax import config
 # config.update("jax_disable_jit", True)
 
