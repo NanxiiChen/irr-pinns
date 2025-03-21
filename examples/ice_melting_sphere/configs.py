@@ -9,19 +9,19 @@ class Config:
     EPOCHS = 100000
     N_SAMPLES = 20
     ADAPTIVE_SAMPLES = 8000
-    ADAPTIVE_BASE_RATE = 25
-    LR = 1e-3
+    ADAPTIVE_BASE_RATE = 5
+    LR = 5e-4
     DECAY = 0.9
     DECAY_EVERY = 1000
     STAGGER_PERIOD = 25
-    EMB_SCALE = (2.0, 0.5)  # emb sacle for (x, t)
+    EMB_SCALE = (2.0, 0.2)  # emb sacle for (x, t)
     EMB_DIM = 64
 
     DOMAIN = ((-0.5, 0.5), (-0.5, 0.5), (-0.5, 0.5), (0, 1.0))
     DATA_PATH = "./data/ice-melting/"
     LOG_DIR = "/root/tf-logs"
     PREFIX = "ice-melting/irr"
-    TS = [0.000, 1.0000, 2.0000, 2.5000]
+    TS = [0.000, 2.0000, 4.000, 5.000]
 
     NUM_LAYERS = 4
     HIDDEN_DIM = 64
@@ -40,8 +40,8 @@ class Config:
     MM = 0.1
     R0 = 35
 
-    Lc = 100
-    Tc = 2.5
+    Lc = 100.0
+    Tc = 5.0
     AC_PRE_SCALE = 1e6
     CH_PRE_SCALE = 1e0
 

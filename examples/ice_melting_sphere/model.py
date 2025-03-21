@@ -216,7 +216,14 @@ def evaluate3D(pinn, params, mesh, ref_path, ts, **kwargs):
         ax.set_axis_off()
         ax.invert_zaxis()
 
-        ref_sol = jnp.load(f"{ref_path}/sol-{tic:.4f}.npy")[::10]
+
+        # the numerical solution by FEM
+        # ref_sol = jnp.load(f"{ref_path}/sol-{tic:.4f}.npy")[::10]
+
+        # or we can calculate the sol using the analytical solution
+        Rt = cfg.R0 - cfg.LAMBDA * tic
+        Rxyz = jnp.sqrt(mesh[:, 0] ** 2 + mesh[:, 1] ** 2 + mesh[:, 2] ** 2) * Lc
+        ref_sol = jnp.tanh((Rt - Rxyz) / (jnp.sqrt(2) * cfg.EPSILON))
         diff = jnp.abs(pred - ref_sol)
 
         ax = fig.add_subplot(gs[1, idx + 1], projection="3d", box_aspect=(1, 1, 1))
