@@ -7,7 +7,7 @@ import math
 
 class Config:
     EPOCHS = 100000
-    N_SAMPLES = 20
+    N_SAMPLES = 30
     ADAPTIVE_SAMPLES = 8000
     ADAPTIVE_BASE_RATE = 5
     LR = 5e-4
