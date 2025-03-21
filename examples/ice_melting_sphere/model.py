@@ -124,9 +124,10 @@ class PINN(nn.Module):
 
         losses = jnp.array(losses)
         weights = self.grad_norm_weights(grads)
+        # weights = jax.lax.stop_gradient(jnp.array([3.0, 1.0, 1.0]))
         if not self.cfg.IRR:
             weights = weights.at[-1].set(0.0)
-        # weights = jax.lax.stop_gradient(jnp.array([1.0, 1.0, 1.0]))
+
         return jnp.sum(weights * losses), (losses, weights, aux)
 
     @partial(jit, static_argnums=(0,))
@@ -215,7 +216,6 @@ def evaluate3D(pinn, params, mesh, ref_path, ts, **kwargs):
         )
         ax.set_axis_off()
         ax.invert_zaxis()
-
 
         # the numerical solution by FEM
         # ref_sol = jnp.load(f"{ref_path}/sol-{tic:.4f}.npy")[::10]
@@ -342,7 +342,7 @@ class Sampler:
         data = shifted_grid(
             self.mins,
             self.maxs,
-            [self.n_samples, self.n_samples, self.n_samples, self.n_samples * 2],
+            [self.n_samples, self.n_samples, self.n_samples, self.n_samples * 3],
             key,
         )
         return data[:, :-1], data[:, -1:]
@@ -352,7 +352,7 @@ class Sampler:
         batch = shifted_grid(
             self.mins,
             self.maxs,
-            [self.n_samples, self.n_samples, self.n_samples, self.n_samples * 2],
+            [self.n_samples, self.n_samples, self.n_samples, self.n_samples * 3],
             key,
         )
 
