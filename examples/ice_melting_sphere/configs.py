@@ -10,6 +10,7 @@ class Config:
     N_SAMPLES = 20
     ADAPTIVE_SAMPLES = 8000
     ADAPTIVE_BASE_RATE = 5
+    MAX_BATCH_SIZE = 5000
     LR = 5e-4
     DECAY = 0.9
     DECAY_EVERY = 1000
@@ -30,7 +31,7 @@ class Config:
     ACT_NAME = "tanh"
     ARCH_NAME = "mlp"
     FOURIER_EMB = True
-    CAUSAL_WEIGHT = True
+    CAUSAL_WEIGHT = False
     IRR = True
 
     LAMBDA = 5

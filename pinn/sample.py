@@ -45,7 +45,10 @@ def shifted_grid(mins, maxs, nums, key, eps=1e-3):
         grids.append(grid_i)
 
     # 使用mesh_flat创建网格点
-    return jnp.stack(mesh_flat(*grids), axis=-1).reshape(-1, dim)
+    data = jnp.stack(mesh_flat(*grids), axis=-1).reshape(-1, dim)
+    # shuffle
+    data = data[random.permutation(key, data.shape[0])]
+    return data
 
 
 # def lhs_sampling(mins, maxs, num):

@@ -1,46 +1,23 @@
-"""
-Sharp-PINNs for pitting corrosion with 2d-1pit
-"""
-
 import datetime
 import sys
 import time
 from pathlib import Path
 
-import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
-import optax
 import orbax.checkpoint as ocp
-from flax.training import train_state
-from jax import jit, random
+from jax import random
 
 current_dir = Path(__file__).resolve().parent
 project_root = current_dir.parent.parent
 sys.path.append(str(project_root))
 
-from examples.ice_melting_sphere.configs import Config as cfg
-from examples.ice_melting_sphere.model import PINN, Sampler, evaluate3D
+from examples.ice_melting_sphere import *
 from pinn import CausalWeightor, MetricsTracker
 
 # from jax import config
 # config.update("jax_disable_jit", True)
 
-
-def create_train_state(model, rng, lr, **kwargs):
-    decay = kwargs.get("decay", 0.9)
-    decay_every = kwargs.get("decay_every", 1000)
-    params = model.init(rng, jnp.ones(3), jnp.ones(1))
-    scheduler = optax.exponential_decay(lr, decay_every, decay, staircase=True)
-    optimizer = optax.chain(
-        optax.clip_by_global_norm(1.0),
-        optax.adam(scheduler),
-    )
-    return train_state.TrainState.create(
-        apply_fn=model.apply,
-        params=params,
-        tx=optimizer,
-    )
 
 
 causal_weightor = CausalWeightor(cfg.CAUSAL_CONFIGS["chunks"], cfg.DOMAIN[-1])
@@ -67,14 +44,6 @@ sampler = Sampler(
 )
 
 
-@jit
-def train_step(state, batch, eps):
-    params = state.params
-    (weighted_loss, (loss_components, weight_components, aux)), grads = (
-        jax.value_and_grad(pinn.loss_fn, has_aux=True, argnums=0)(params, batch, eps)
-    )
-    new_state = state.apply_gradients(grads=grads)
-    return new_state, (weighted_loss, loss_components, weight_components, aux)
 
 
 error = 0
@@ -89,6 +58,7 @@ for epoch in range(cfg.EPOCHS):
         state,
         batch,
         cfg.CAUSAL_CONFIGS["eps"],
+        pinn.loss_fn,
     )
     if cfg.CAUSAL_WEIGHT:
         cfg.CAUSAL_CONFIGS.update(

@@ -1,15 +1,11 @@
 from functools import partial
 
-
 import jax
 import jax.numpy as jnp
-import matplotlib.pyplot as plt
 from flax import linen as nn
 from jax import jit, random, vmap
-from matplotlib.gridspec import GridSpec
 
-from examples.ice_melting_sphere.configs import Config as cfg
-from pinn import *
+from pinn import CausalWeightor, MLP, ModifiedMLP
 
 
 class PINN(nn.Module):
@@ -104,6 +100,46 @@ class PINN(nn.Module):
                 eps,
             )
 
+    # @partial(jit, static_argnums=(0,))
+    # def loss_pde(self, params, batch, eps):
+    #     max_bs = self.cfg.MAX_BATCH_SIZE
+    #     x, t = batch
+    #     # since the row of the data might not be the integer times of max_bs
+    #     # so the shape of the data might not be the same
+    #     # we need to pad the data to make sure the shape is the same
+    #     x_padded = jnp.pad(x, ((0, max_bs - x.shape[0] % max_bs), (0, 0)))
+    #     t_padded = jnp.pad(t, ((0, max_bs - t.shape[0] % max_bs), (0, 0)))
+
+    #     # shuffle the data
+    #     idx = jax.random.permutation(random.PRNGKey(0), x_padded.shape[0])
+    #     x_padded = x_padded[idx]
+    #     t_padded = t_padded[idx]
+
+    #     num_batches = x_padded.shape[0] // max_bs
+
+    #     if not self.cfg.CAUSAL_WEIGHT:
+
+    #         def process_batch(start):
+    #             x_batch = jax.lax.dynamic_slice(x_padded, (start, 0), (max_bs, x_padded.shape[1]))
+    #             t_batch = jax.lax.dynamic_slice(t_padded, (start, 0), (max_bs, t_padded.shape[1]))
+    #             res = vmap(self.net_pde, in_axes=(None, 0, 0))(params, x_batch, t_batch)
+    #             loss = jnp.mean(res**2)
+    #             return loss
+
+    #         loss = 0
+    #         for idx in range(0, num_batches):
+    #             start = idx * max_bs
+    #             loss += process_batch(start)
+    #         loss /= num_batches
+    #         return loss, {}
+    #     else:
+    #         raise NotImplementedError
+    # return self.causal_weightor.compute_causal_loss(
+    #     res,
+    #     t,
+    #     eps,
+    # )
+
     @partial(jit, static_argnums=(0,))
     def loss_fn(self, params, batch, eps):
         losses = []
@@ -145,243 +181,5 @@ class PINN(nn.Module):
         return jax.lax.stop_gradient(weights)
 
 
-def evaluate3D(pinn, params, mesh, ref_path, ts, **kwargs):
-    fig = plt.figure(figsize=(3 * len(ts), 8))
-    gs = GridSpec(
-        4,
-        len(ts) + 1,
-        width_ratios=[0.1] + [1] * len(ts),
-        height_ratios=[1, 1, 1, 0.3],
-        figure=fig,
-    )
+                
 
-    xlim = kwargs.get("xlim", (-0.5, 0.5))
-    ylim = kwargs.get("ylim", (-0.5, 0.5))
-    zlim = kwargs.get("zlim", (-0.5, 0.5))
-    Lc = kwargs.get("Lc", 100)
-    Tc = kwargs.get("Tc", 1.0)
-
-    error = 0
-    mesh /= Lc
-    mesh = mesh[::10]
-
-    row_names = ["PINN", "FEM", "Error"]
-    for idx, row_name in enumerate(row_names):
-        ax = fig.add_subplot(gs[idx, 0])
-        # put row name on the left vertical axis
-        ax.text(
-            0.5,
-            0.5,
-            row_name,
-            transform=ax.transAxes,
-            rotation=90,
-            ha="center",
-            va="center",
-        )
-        ax.set_axis_off()
-
-    for idx, tic in enumerate(ts):
-        t = jnp.ones_like(mesh[:, 0:1]) * tic / Tc
-        pred = vmap(pinn.net_u, in_axes=(None, 0, 0))(params, mesh, t).squeeze()
-
-        ax = fig.add_subplot(gs[0, idx + 1], projection="3d", box_aspect=(1, 1, 1))
-        interface_idx = (pred > -0.5) & (pred < 0.5)
-        ax.scatter(
-            mesh[interface_idx, 0],
-            mesh[interface_idx, 1],
-            mesh[interface_idx, 2],
-            c=pred[interface_idx],
-            cmap="coolwarm",
-            label="phi",
-            vmin=-1,
-            vmax=1,
-        )
-        r_pinn = (
-            jnp.sqrt(
-                mesh[interface_idx, 0] ** 2
-                + mesh[interface_idx, 1] ** 2
-                + mesh[interface_idx, 2] ** 2
-            )
-            * Lc
-        )
-
-        ax.set(
-            xlabel="x",
-            ylabel="y",
-            zlabel="z",
-            title=f"t={tic}",
-            xlim=xlim,
-            ylim=ylim,
-            zlim=zlim,
-        )
-        ax.set_axis_off()
-        ax.invert_zaxis()
-
-        # the numerical solution by FEM
-        # ref_sol = jnp.load(f"{ref_path}/sol-{tic:.4f}.npy")[::10]
-
-        # or we can calculate the sol using the analytical solution
-        Rt = cfg.R0 - cfg.LAMBDA * tic
-        Rxyz = jnp.sqrt(mesh[:, 0] ** 2 + mesh[:, 1] ** 2 + mesh[:, 2] ** 2) * Lc
-        ref_sol = jnp.tanh((Rt - Rxyz) / (jnp.sqrt(2) * cfg.EPSILON))
-        diff = jnp.abs(pred - ref_sol)
-
-        ax = fig.add_subplot(gs[1, idx + 1], projection="3d", box_aspect=(1, 1, 1))
-        interface_idx = (ref_sol > -0.5) & (ref_sol < 0.5)
-        ax.scatter(
-            mesh[interface_idx, 0],
-            mesh[interface_idx, 1],
-            mesh[interface_idx, 2],
-            c=ref_sol[interface_idx],
-            cmap="coolwarm",
-            label="phi",
-            vmin=-1,
-            vmax=1,
-        )
-        ax.set(
-            xlabel="x",
-            ylabel="y",
-            zlabel="z",
-            xlim=xlim,
-            ylim=ylim,
-            zlim=zlim,
-        )
-        ax.set_axis_off()
-
-        ax = fig.add_subplot(gs[2, idx + 1], projection="3d", box_aspect=(1, 1, 1))
-        interface_idx = diff > 0.05
-        error_bar = ax.scatter(
-            mesh[interface_idx, 0],
-            mesh[interface_idx, 1],
-            mesh[interface_idx, 2],
-            c=jnp.abs(pred[interface_idx] - ref_sol[interface_idx]),
-            cmap="coolwarm",
-            label="error",
-        )
-
-        ax.set(
-            xlabel="x",
-            ylabel="y",
-            zlabel="z",
-            xlim=xlim,
-            ylim=ylim,
-            zlim=zlim,
-        )
-        error += jnp.mean(diff**2)
-
-        ax.set_axis_off()
-        ax.invert_zaxis()
-
-        interface_idx = jnp.where((ref_sol > -0.5) & (ref_sol < 0.5))[0]
-        r_fem = (
-            jnp.sqrt(
-                mesh[interface_idx, 0] ** 2
-                + mesh[interface_idx, 1] ** 2
-                + mesh[interface_idx, 2] ** 2
-            )
-            * Lc
-        )
-        r_analytical = cfg.R0 - cfg.LAMBDA * tic
-
-        ax.text2D(
-            0.05,
-            -0.2,
-            f"R_analytical = {r_analytical:.2f}\n"
-            f"R_pinn = {jnp.mean(r_pinn):.2f}\n"
-            f"R_fem = {jnp.mean(r_fem):.2f}",
-            transform=ax.transAxes,
-            ha="left",
-            va="bottom",
-        )
-
-        ax = fig.add_subplot(gs[3, idx + 1])
-        fig.colorbar(error_bar, ax=ax, orientation="horizontal")
-        ax.set_axis_off()
-
-    error /= len(ts)
-    return fig, error
-
-
-class Sampler:
-
-    def __init__(
-        self,
-        n_samples,
-        domain=((-0.4, 0.4), (-0.4, 0.4), (0, 0.4), (0, 1)),
-        key=random.PRNGKey(0),
-        adaptive_kw={
-            "ratio": 10,
-            "num": 5000,
-            "model": None,
-            "state": None,
-        },
-    ):
-        self.n_samples = n_samples
-        self.domain = domain
-        self.adaptive_kw = adaptive_kw
-        self.key = key
-        self.mins = [d[0] for d in domain]
-        self.maxs = [d[1] for d in domain]
-
-    def adaptive_sampling(self, residual_fn):
-        key, self.key = random.split(self.key)
-        adaptive_base = lhs_sampling(
-            self.mins,
-            self.maxs,
-            self.adaptive_kw["num"] * self.adaptive_kw["ratio"],
-            key=key,
-        )
-        residuals = residual_fn(adaptive_base)
-        max_residuals, indices = jax.lax.top_k(
-            jnp.abs(residuals), self.adaptive_kw["num"]
-        )
-        return adaptive_base[indices]
-
-    def sample_pde(self):
-        key, self.key = random.split(self.key)
-        data = shifted_grid(
-            self.mins,
-            self.maxs,
-            [self.n_samples, self.n_samples, self.n_samples, self.n_samples * 3],
-            key,
-        )
-        return data[:, :-1], data[:, -1:]
-
-    def sample_pde_rar(self):
-        key, self.key = random.split(self.key)
-        batch = shifted_grid(
-            self.mins,
-            self.maxs,
-            [self.n_samples, self.n_samples, self.n_samples, self.n_samples * 3],
-            key,
-        )
-
-        def residual_fn(batch):
-            model = self.adaptive_kw["model"]
-            params = self.adaptive_kw["params"]
-            x, t = batch[:, :-1], batch[:, -1:]
-            return vmap(model.net_pde, in_axes=(None, 0, 0))(params, x, t)
-
-        adaptive_sampling = self.adaptive_sampling(residual_fn)
-        data = jnp.concatenate([batch, adaptive_sampling], axis=0)
-        return data[:, :-1], data[:, -1:]
-
-    def sample_ic(self):
-        key, self.key = random.split(self.key)
-        x = lhs_sampling(
-            mins=[self.domain[0][0], self.domain[1][0], self.domain[2][0]],
-            maxs=[self.domain[0][1], self.domain[1][1], self.domain[2][1]],
-            num=10000,
-            key=key,
-        )
-        t = jnp.zeros_like(x[:, 0:1])
-        return x, t
-
-    def sample(
-        self,
-    ):
-        return (
-            self.sample_pde_rar(),
-            self.sample_ic(),
-            self.sample_pde(),
-        )
