@@ -12,7 +12,7 @@ current_dir = Path(__file__).resolve().parent
 project_root = current_dir.parent.parent
 sys.path.append(str(project_root))
 
-from examples.ice_melting_sphere import *
+from examples.ice_melting import *
 from pinn import CausalWeightor, MetricsTracker
 
 # from jax import config

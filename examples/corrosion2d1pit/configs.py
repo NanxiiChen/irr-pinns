@@ -28,7 +28,8 @@ class Config:
     ACT_NAME = "tanh"
     ARCH_NAME = "modified_mlp"
     FOURIER_EMB = True
-    CAUSAL_WEIGHT = False
+    CAUSAL_WEIGHT = True
+    IRR = True
 
     ALPHA_PHI = 1.03e-4
     OMEGA_PHI = 1.76e7
