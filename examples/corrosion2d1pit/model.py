@@ -23,6 +23,7 @@ class PINN(nn.Module):
             self.loss_pde,
             self.loss_ic,
             self.loss_bc,
+            self.loss_flux,
             self.loss_irr,
         ]
         arch = {"mlp": MLP, "modified_mlp": ModifiedMLP}
@@ -36,18 +37,28 @@ class PINN(nn.Module):
             emb_dim=self.cfg.EMB_DIM,
         )
         self.causal_weightor = causal_weightor
+        
+        self.loss_fn_ac = partial(self.loss_fn, pde_name="ac")
+        self.loss_fn_ch = partial(self.loss_fn, pde_name="ch")
+        
+    def hard_cons(self, params, x, t):
+        phi, cl = nn.tanh(self.model.apply(params, x, t)) / 2 + 0.5
+        cl = cl * (1 - self.cfg.CSE + self.cfg.CLE)
+        c = (self.cfg.CSE - self.cfg.CLE) * (-2 * phi**3 + 3 * phi**2) + cl
+        return jnp.stack([phi, c], axis=0)
 
     @partial(jit, static_argnums=(0,))
     def net_u(self, params, x, t):
 
-        def hard_cons(params, x, t):
-            phi, cl = nn.tanh(self.model.apply(params, x, t)) / 2 + 0.5
-            cl = cl * (1 - self.cfg.CSE + self.cfg.CLE)
-            c = (self.cfg.CSE - self.cfg.CLE) * (-2 * phi**3 + 3 * phi**2) + cl
-            return jnp.stack([phi, c], axis=0)
-
-        return hard_cons(params, x, t)
-
+        if self.cfg.ASYMMETRIC:
+            return (
+                self.hard_cons(params, x, t)
+                + self.hard_cons(
+                    params, x * jnp.array([-1] + [1] * (x.shape[0] - 1)), t
+                )
+            ) / 2
+        else:
+            return self.hard_cons(params, x, t)
 
     @partial(jit, static_argnums=(0,))
     def net_ac(self, params, x, t):
@@ -93,9 +104,9 @@ class PINN(nn.Module):
 
         # hess_phi_x, hess_c_x = jax.hessian(self.net_u, argnums=(1))(params, x, t)
 
-        # hess_phi_x = jax.hessian(lambda x, t: self.net_u(params, x, t)[0], argnums=0)(x, t)
-        # hess_c_x = jax.hessian(lambda x, t: self.net_u(params, x, t)[1], argnums=0)(x, t)
-        hess_phi_x, hess_c_x = jax.hessian(self.net_u, argnums=(1))(params, x, t)
+        hess_phi_x = jax.hessian(lambda x, t: self.net_u(params, x, t)[0], argnums=0)(x, t)
+        hess_c_x = jax.hessian(lambda x, t: self.net_u(params, x, t)[1], argnums=0)(x, t)
+        # hess_phi_x, hess_c_x = jax.hessian(self.net_u, argnums=(1))(params, x, t)
 
         lap_phi = jnp.linalg.trace(hess_phi_x)
         lap_c = jnp.linalg.trace(hess_c_x)
@@ -109,48 +120,70 @@ class PINN(nn.Module):
         return ch / self.cfg.CH_PRE_SCALE
     
 
-    @partial(jit, static_argnums=(0,))
     def net_speed(self, params, x, t):
         jac_dt = jax.jacrev(self.net_u, argnums=2)
         dphi_dt, dc_dt = jac_dt(params, x, t)
         return dphi_dt, dc_dt
 
 
-    @partial(jit, static_argnums=(0,))
     def ref_sol_ic(self, x, t):
         raise NotImplementedError
 
-    @partial(jit, static_argnums=(0,))
     def ref_sol_bc(self, x, t):
         raise NotImplementedError
 
+    
     @partial(jit, static_argnums=(0,))
-    def net_speed(self, params, x, t):
-        dphi_dt = jax.jacrev(self.net_u, argnums=2)(params, x, t)[0]
-        return dphi_dt
+    def net_nabla(self, params, x, t, on="y"):
+        idx = 1 if on == "y" else 0
+        nabla_phi_part = jax.jacrev(
+            lambda x, t: self.net_u(params, x, t)[0], argnums=0
+        )(x, t)[idx]
+        nabla_c_part = jax.jacrev(lambda x, t: self.net_u(params, x, t)[1], argnums=0)(
+            x, t
+        )[idx]
+        return nabla_phi_part, nabla_c_part
+    
+    def loss_ac(self, params, batch, eps):
+        x, t = batch
+        ac = vmap(self.net_ac, in_axes=(None, 0, 0))(params, x, t)
+        if not self.cfg.CAUSAL_WEIGHT:
+            return jnp.mean(ac**2), {}
+        else:
+            return self.causal_weightor.compute_causal_loss(ac, t, eps)
 
-    @partial(jit, static_argnums=(0,))
+    def loss_ch(self, params, batch, eps):
+        x, t = batch
+        ch = vmap(self.net_ch, in_axes=(None, 0, 0))(params, x, t)
+        if not self.cfg.CAUSAL_WEIGHT:
+            return jnp.mean(ch**2), {}
+        else:
+            return self.causal_weightor.compute_causal_loss(ch, t, eps)
+
+    @partial(jit, static_argnums=(0, 4))
+    def loss_pde(self, params, batch, eps, pde_name: str):
+        return jax.lax.cond(
+            pde_name == "ac",
+            lambda _: self.loss_ac(params, batch, eps),
+            lambda _: self.loss_ch(params, batch, eps),
+            operand=None,
+        )
+
     def loss_ic(self, params, batch):
         x, t = batch
         u = vmap(self.net_u, in_axes=(None, 0, 0))(params, x, t)
         ref = vmap(self.ref_sol_ic, in_axes=(0, 0))(x, t)
         return jnp.mean((u - ref) ** 2)
 
-    @partial(jit, static_argnums=(0,))
+
     def loss_bc(self, params, batch):
         x, t = batch
         u = vmap(self.net_u, in_axes=(None, 0, 0))(params, x, t)
         ref = vmap(self.ref_sol_bc, in_axes=(0, 0))(x, t)
         return jnp.mean((u - ref) ** 2)
-
+    
     @partial(jit, static_argnums=(0,))
-    def loss_irr(self, params, batch):
-        x, t = batch
-        dphi_dt = vmap(self.net_speed, in_axes=(None, 0, 0))(params, x, t)
-        return jnp.mean(jax.nn.relu(dphi_dt))
-
-    @partial(jit, static_argnums=(0,))
-    def loss_pde(self, params, batch, eps):
+    def loss_pde(self, params, batch, *kwargs):
         x, t = batch
         res = vmap(self.net_pde, in_axes=(None, 0, 0))(params, x, t)
         if not self.cfg.CAUSAL_WEIGHT:
@@ -159,60 +192,38 @@ class PINN(nn.Module):
             return self.causal_weightor.compute_causal_loss(
                 res,
                 t,
-                eps,
+                kwargs.get("eps", 1e-3),
             )
+            
+    def loss_irr(self, params, batch):
+        x, t = batch
+        dphi_dt, dc_dt = vmap(self.net_speed, in_axes=(None, 0, 0))(params, x, t)
+        return jnp.mean(jax.nn.relu(dphi_dt)) + jnp.mean(jax.nn.relu(dc_dt))
+        
 
-    # @partial(jit, static_argnums=(0,))
-    # def loss_pde(self, params, batch, eps):
-    #     max_bs = self.cfg.MAX_BATCH_SIZE
-    #     x, t = batch
-    #     # since the row of the data might not be the integer times of max_bs
-    #     # so the shape of the data might not be the same
-    #     # we need to pad the data to make sure the shape is the same
-    #     x_padded = jnp.pad(x, ((0, max_bs - x.shape[0] % max_bs), (0, 0)))
-    #     t_padded = jnp.pad(t, ((0, max_bs - t.shape[0] % max_bs), (0, 0)))
+    def loss_flux(self, params, batch):
+        x, t = batch
+        dphi_dy, dc_dy = vmap(self.net_nabla, in_axes=(None, 0, 0))(params, x, t)
+        return jnp.mean(dphi_dy**2) + jnp.mean(dc_dy**2)
 
-    #     # shuffle the data
-    #     idx = jax.random.permutation(random.PRNGKey(0), x_padded.shape[0])
-    #     x_padded = x_padded[idx]
-    #     t_padded = t_padded[idx]
-
-    #     num_batches = x_padded.shape[0] // max_bs
-
-    #     if not self.cfg.CAUSAL_WEIGHT:
-
-    #         def process_batch(start):
-    #             x_batch = jax.lax.dynamic_slice(x_padded, (start, 0), (max_bs, x_padded.shape[1]))
-    #             t_batch = jax.lax.dynamic_slice(t_padded, (start, 0), (max_bs, t_padded.shape[1]))
-    #             res = vmap(self.net_pde, in_axes=(None, 0, 0))(params, x_batch, t_batch)
-    #             loss = jnp.mean(res**2)
-    #             return loss
-
-    #         loss = 0
-    #         for idx in range(0, num_batches):
-    #             start = idx * max_bs
-    #             loss += process_batch(start)
-    #         loss /= num_batches
-    #         return loss, {}
-    #     else:
-    #         raise NotImplementedError
-    # return self.causal_weightor.compute_causal_loss(
-    #     res,
-    #     t,
-    #     eps,
-    # )
-
-    @partial(jit, static_argnums=(0,))
-    def loss_fn(self, params, batch, eps):
+    @partial(jit, static_argnums=(0, 4))
+    def compute_losses_and_grads(self, params, batch, eps, pde_name):
+        if len(batch) != len(self.loss_fn_panel):
+            raise ValueError(
+                "The number of loss functions "
+                "should be equal to the number of items in the batch"
+            )
         losses = []
         grads = []
+        aux_vars = {}
         for idx, (loss_item_fn, batch_item) in enumerate(
             zip(self.loss_fn_panel, batch)
         ):
             if idx == 0:
                 (loss_item, aux), grad_item = jax.value_and_grad(
-                    loss_item_fn, has_aux=True, argnums=0
-                )(params, batch_item, eps)
+                    loss_item_fn, has_aux=True
+                )(params, batch_item, eps, pde_name)
+                aux_vars.update(aux)
             else:
                 loss_item, grad_item = jax.value_and_grad(loss_item_fn)(
                     params, batch_item
@@ -220,16 +231,23 @@ class PINN(nn.Module):
             losses.append(loss_item)
             grads.append(grad_item)
 
-        losses = jnp.array(losses)
+        return jnp.array(losses), grads, aux_vars
+
+    @partial(jit, static_argnums=(0, 4))
+    def loss_fn(self, params, batch, eps, pde_name):
+        losses, grads, aux_vars = self.compute_losses_and_grads(
+            params, batch, eps, pde_name
+        )
+
         weights = self.grad_norm_weights(grads)
-        # weights = jax.lax.stop_gradient(jnp.array([3.0, 1.0, 1.0]))
         if not self.cfg.IRR:
             weights = weights.at[-1].set(0.0)
 
-        return jnp.sum(weights * losses), (losses, weights, aux)
+        return jnp.sum(weights * losses), (losses, weights, aux_vars)
+
 
     @partial(jit, static_argnums=(0,))
-    def grad_norm_weights(self, grads: list, eps=1e-6):
+    def grad_norm_weights(self, grads: list, eps=1e-8):
         def tree_norm(pytree):
             squared_sum = sum(jnp.sum(x**2) for x in jax.tree_util.tree_leaves(pytree))
             return jnp.sqrt(squared_sum)

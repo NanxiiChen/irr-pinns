@@ -1,18 +1,15 @@
 import os
-import jax
 import matplotlib
 from matplotlib import font_manager, rcParams
 
-# Import local modules
-from pinn.arch import MLP, ModifiedMLP
-from pinn.causal import CausalWeightor
-from pinn.evaluator import evaluate1D, evaluate2D, evaluate3D
-from pinn.metrics import MetricsTracker
-from pinn.model import PINN
-from pinn.sample import lhs_sampling, mesh_flat, shifted_grid
-from pinn.utils import StaggerSwitch
-
-# jax.config.update("jax_default_matmul_precision", "high")
+from .arch import MLP, ModifiedMLP
+from .causal import CausalWeightor
+from .evaluator import evaluate1D, evaluate2D, evaluate3D
+from .metrics import MetricsTracker
+# from .model import PINN
+from .sample import lhs_sampling, mesh_flat, shifted_grid
+from .utils import StaggerSwitch
+from .train import train_step, create_train_state, StaggerSwitch
 
 
 def configure_matplotlib():
