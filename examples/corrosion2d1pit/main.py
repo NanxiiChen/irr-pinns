@@ -179,7 +179,6 @@ for epoch in range(cfg.EPOCHS):
                 pde_name,
                 aux_vars["causal_weights"],
                 aux_vars["loss_chunks"],
-                cfg.CAUSAL_CONFIGS["eps"],
             )
             metrics_tracker.register_figure(epoch, fig, "causal_info")
             plt.close(fig)
