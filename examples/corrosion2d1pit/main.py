@@ -32,26 +32,30 @@ from pinn import (
     StaggerSwitch
 )
 
-# from jax import config
-# config.update("jax_disable_jit", True)
-
-
 class PFPINN(PINN):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
+        self.loss_fn_panel = [
+            self.loss_pde,
+            self.loss_ic,
+            self.loss_bc,
+            self.loss_flux,
+            self.loss_irr,
+        ]
+        self.flux_idx = 1
+        
     @partial(jit, static_argnums=(0,))
     def ref_sol_bc(self, x, t):
         # x: (x1, x2)
-        r = jnp.sqrt(x[:, 0] ** 2 + x[:, 1] ** 2)
+        r = jnp.sqrt(x[0] ** 2 + x[1] ** 2)
         phi = (r > 0.05).astype(jnp.float32)
         c = phi.copy()
-        sol = jnp.stack([phi, c], axis=1)
+        sol = jnp.stack([phi, c], axis=-1)
         return jax.lax.stop_gradient(sol)
 
     @partial(jit, static_argnums=(0,))
     def ref_sol_ic(self, x, t):
-        r = jnp.sqrt(x[:, 0] ** 2 + x[:, 1] ** 2)
+        r = jnp.sqrt(x[0] ** 2 + x[1] ** 2)
         phi = (
             1
             - (
@@ -67,7 +71,7 @@ class PFPINN(PINN):
         )
         h_phi = -2 * phi**3 + 3 * phi**2
         c = h_phi * cfg.CSE + (1 - h_phi) * 0.0
-        sol = jnp.stack([phi, c], axis=1)
+        sol = jnp.stack([phi, c], axis=-1)
         return jax.lax.stop_gradient(sol)
 
 
@@ -116,14 +120,13 @@ for epoch in range(cfg.EPOCHS):
         loss_fn,
         state,
         batch,
-        cfg.CAUSAL_CONFIGS[pde_name + "_eps"],
+        cfg.CAUSAL_CONFIGS["eps"],
     )
     if cfg.CAUSAL_WEIGHT:
         cfg.CAUSAL_CONFIGS.update(
             causal_weightor.update_causal_eps(
                 aux_vars["causal_weights"],
                 cfg.CAUSAL_CONFIGS,
-                pde_name,
             )
         )
     stagger.step_epoch()
@@ -141,6 +144,7 @@ for epoch in range(cfg.EPOCHS):
             ts=cfg.TS,
             Lc=cfg.Lc,
             Tc=cfg.Tc,
+            val_range=(0, 1),
         )
 
         print(
@@ -175,7 +179,7 @@ for epoch in range(cfg.EPOCHS):
                 pde_name,
                 aux_vars["causal_weights"],
                 aux_vars["loss_chunks"],
-                cfg.CAUSAL_CONFIGS[pde_name + "_eps"],
+                cfg.CAUSAL_CONFIGS["eps"],
             )
             metrics_tracker.register_figure(epoch, fig, "causal_info")
             plt.close(fig)

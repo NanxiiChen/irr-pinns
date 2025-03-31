@@ -10,7 +10,7 @@ def evaluate2D(pinn, params, mesh, ref_path, ts, **kwargs):
     # fig, axes = plt.subplots(len(ts), 2, figsize=(10, 3*len(ts)))
     fig = plt.figure(figsize=(10, 3 * len(ts)))
     gs = GridSpec(len(ts), 3, width_ratios=[1, 1, 0.05])
-    vmin, vmax = kwargs.get("val_range", (-1, 1))
+    vmin, vmax = kwargs.get("val_range", (0, 1))
     xlim = kwargs.get("xlim", (-0.5, 0.5))
     ylim = kwargs.get("ylim", (0, 0.5))
     Lc = kwargs.get("Lc", 1e-4)

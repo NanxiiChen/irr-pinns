@@ -13,7 +13,10 @@ def create_train_state(model, rng, lr, **kwargs):
     xdim = kwargs.get("xdim", 3)
     params = model.init(rng, jnp.ones(xdim), jnp.ones(1))
     scheduler = optax.exponential_decay(lr, decay_every, decay, staircase=True)
-    optimizer = optax.adam(scheduler)
+    optimizer = optax.chain(
+        optax.clip_by_global_norm(1.0),
+        optax.adam(scheduler),
+    )
     return train_state.TrainState.create(
         apply_fn=model.apply,
         params=params,

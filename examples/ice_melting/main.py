@@ -36,6 +36,11 @@ class IceMeltingPINN(PINN):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.loss_fn_panel = [
+            self.loss_pde,
+            self.loss_ic,
+            self.loss_irr,
+        ]
 
     @partial(jit, static_argnums=(0,))
     def ref_sol_ic(self, x, t):

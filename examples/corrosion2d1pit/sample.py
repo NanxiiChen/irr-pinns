@@ -64,7 +64,7 @@ class Sampler:
             model = self.adaptive_kw["model"]
             params = self.adaptive_kw["params"]
             x, t = batch[:, :-1], batch[:, -1:]
-            fn = model.net_pde(pde_name)
+            fn = model.net_ac if pde_name == "ac" else model.net_ch
             return vmap(fn, in_axes=(None, 0, 0))(params, x, t)
 
         adaptive_sampling = self.adaptive_sampling(residual_fn)

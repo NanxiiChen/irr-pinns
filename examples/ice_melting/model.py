@@ -38,8 +38,6 @@ class PINN(nn.Module):
 
     @partial(jit, static_argnums=(0,))
     def net_u(self, params, x, t):
-        # phi0 = self.ref_sol_ic(x, t)
-        # return phi0 + self.model.apply(params, x, t) * t
         return nn.tanh(self.model.apply(params, x, t))
 
     @partial(jit, static_argnums=(0,))
@@ -62,24 +60,20 @@ class PINN(nn.Module):
         )
         return pde.squeeze()
 
-    @partial(jit, static_argnums=(0,))
     def ref_sol_ic(self, x, t):
         raise NotImplementedError
 
 
-    @partial(jit, static_argnums=(0,))
     def net_speed(self, params, x, t):
         dphi_dt = jax.jacrev(self.net_u, argnums=2)(params, x, t)[0]
         return dphi_dt
 
-    @partial(jit, static_argnums=(0,))
     def loss_ic(self, params, batch):
         x, t = batch
         u = vmap(self.net_u, in_axes=(None, 0, 0))(params, x, t)
         ref = vmap(self.ref_sol_ic, in_axes=(0, 0))(x, t)
         return jnp.mean((u - ref) ** 2)
 
-    @partial(jit, static_argnums=(0,))
     def loss_irr(self, params, batch):
         x, t = batch
         dphi_dt = vmap(self.net_speed, in_axes=(None, 0, 0))(params, x, t)
@@ -98,45 +92,6 @@ class PINN(nn.Module):
                 eps,
             )
 
-    # @partial(jit, static_argnums=(0,))
-    # def loss_pde(self, params, batch, eps):
-    #     max_bs = self.cfg.MAX_BATCH_SIZE
-    #     x, t = batch
-    #     # since the row of the data might not be the integer times of max_bs
-    #     # so the shape of the data might not be the same
-    #     # we need to pad the data to make sure the shape is the same
-    #     x_padded = jnp.pad(x, ((0, max_bs - x.shape[0] % max_bs), (0, 0)))
-    #     t_padded = jnp.pad(t, ((0, max_bs - t.shape[0] % max_bs), (0, 0)))
-
-    #     # shuffle the data
-    #     idx = jax.random.permutation(random.PRNGKey(0), x_padded.shape[0])
-    #     x_padded = x_padded[idx]
-    #     t_padded = t_padded[idx]
-
-    #     num_batches = x_padded.shape[0] // max_bs
-
-    #     if not self.cfg.CAUSAL_WEIGHT:
-
-    #         def process_batch(start):
-    #             x_batch = jax.lax.dynamic_slice(x_padded, (start, 0), (max_bs, x_padded.shape[1]))
-    #             t_batch = jax.lax.dynamic_slice(t_padded, (start, 0), (max_bs, t_padded.shape[1]))
-    #             res = vmap(self.net_pde, in_axes=(None, 0, 0))(params, x_batch, t_batch)
-    #             loss = jnp.mean(res**2)
-    #             return loss
-
-    #         loss = 0
-    #         for idx in range(0, num_batches):
-    #             start = idx * max_bs
-    #             loss += process_batch(start)
-    #         loss /= num_batches
-    #         return loss, {}
-    #     else:
-    #         raise NotImplementedError
-    # return self.causal_weightor.compute_causal_loss(
-    #     res,
-    #     t,
-    #     eps,
-    # )
 
     @partial(jit, static_argnums=(0,))
     def loss_fn(self, params, batch, eps):
