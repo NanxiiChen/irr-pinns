@@ -1,30 +1,63 @@
 import datetime
 import sys
 import time
+from functools import partial
 from pathlib import Path
 
+import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import orbax.checkpoint as ocp
-from jax import random
+from jax import jit, random
 
 current_dir = Path(__file__).resolve().parent
 project_root = current_dir.parent.parent
 sys.path.append(str(project_root))
 
-from examples.ice_melting_sphere import *
-from pinn import CausalWeightor, MetricsTracker
+
+from examples.ice_melting import (
+    PINN,
+    Sampler,
+    evaluate3D,
+    cfg,
+)
+from pinn import (
+    CausalWeightor,
+    MetricsTracker,
+    train_step,
+    create_train_state,
+)
 
 # from jax import config
 # config.update("jax_disable_jit", True)
 
 
+class IceMeltingPINN(PINN):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    @partial(jit, static_argnums=(0,))
+    def ref_sol_ic(self, x, t):
+        r = jnp.sqrt(x[0] ** 2 + x[1] ** 2 + x[2] ** 2) * self.cfg.Lc
+        phi = jnp.tanh((self.cfg.R0 - r) / (jnp.sqrt(2) * self.cfg.EPSILON))
+        phi = jnp.expand_dims(phi, axis=-1)
+        return jax.lax.stop_gradient(phi)
+
+
 causal_weightor = CausalWeightor(cfg.CAUSAL_CONFIGS["chunks"], cfg.DOMAIN[-1])
-pinn = PINN(config=cfg, causal_weightor=causal_weightor)
+pinn = IceMeltingPINN(config=cfg, causal_weightor=causal_weightor)
+
+
 init_key = random.PRNGKey(0)
 model_key, sampler_key = random.split(init_key)
 state = create_train_state(
-    pinn.model, model_key, cfg.LR, decay=cfg.DECAY, decay_every=cfg.DECAY_EVERY
+    pinn.model,
+    model_key,
+    cfg.LR,
+    decay=cfg.DECAY,
+    decay_every=cfg.DECAY_EVERY,
+    xdim=len(cfg.DOMAIN) - 1,
 )
 now = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
 log_path = f"{cfg.LOG_DIR}/{cfg.PREFIX}/{now}"
@@ -51,13 +84,11 @@ for epoch in range(cfg.EPOCHS):
         sampler.adaptive_kw["params"].update(state.params)
         batch = sampler.sample()
 
-    state, (weighted_loss, loss_components, weight_components, aux) = (
-        train_step(
-            pinn.loss_fn,
-            state,
-            batch,
-            cfg.CAUSAL_CONFIGS["eps"],
-        )
+    state, (weighted_loss, loss_components, weight_components, aux) = train_step(
+        pinn.loss_fn,
+        state,
+        batch,
+        cfg.CAUSAL_CONFIGS["eps"],
     )
     if cfg.CAUSAL_WEIGHT:
         cfg.CAUSAL_CONFIGS.update(

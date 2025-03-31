@@ -27,8 +27,10 @@ class Config:
 
     ACT_NAME = "tanh"
     ARCH_NAME = "modified_mlp"
+    ASYMMETRIC = True
     FOURIER_EMB = True
-    CAUSAL_WEIGHT = False
+    CAUSAL_WEIGHT = True
+    IRR = True
 
     ALPHA_PHI = 1.03e-4
     OMEGA_PHI = 1.76e7
@@ -47,8 +49,7 @@ class Config:
 
 
     CAUSAL_CONFIGS = {
-        "ac_eps": 1e-5,
-        "ch_eps": 1e-5,
+        "eps": 1e-4,
         "step_size": 10,
         "max_last_weight": 0.99,
         "min_mean_weight": 0.5,

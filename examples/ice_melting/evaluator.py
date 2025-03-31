@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from jax import random, vmap
 from matplotlib.gridspec import GridSpec
 
-from examples.ice_melting_sphere.configs import Config as cfg
+from examples.ice_melting.configs import Config as cfg
 
 
 def evaluate3D(pinn, params, mesh, ref_path, ts, **kwargs):
