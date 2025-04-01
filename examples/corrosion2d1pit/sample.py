@@ -5,7 +5,6 @@ from jax import random, vmap
 from pinn import lhs_sampling, shifted_grid
 
 
-
 class Sampler:
 
     def __init__(
@@ -56,7 +55,7 @@ class Sampler:
         batch = shifted_grid(
             self.mins,
             self.maxs,
-            [self.n_samples*2, self.n_samples, self.n_samples * 3],
+            [self.n_samples * 2, self.n_samples, self.n_samples * 3],
             key,
         )
 
@@ -76,8 +75,8 @@ class Sampler:
         x = lhs_sampling(
             mins=[self.domain[0][0], self.domain[1][0]],
             maxs=[self.domain[0][1], self.domain[1][1]],
-            num=self.n_samples ** 2,
-            key=key
+            num=self.n_samples**2,
+            key=key,
         )
         x_local = lhs_sampling(
             mins=[-0.15, 0], maxs=[0.15, 0.15], num=self.n_samples**2 * 5, key=self.key
@@ -88,12 +87,12 @@ class Sampler:
 
     def sample_bc(self):
         key, self.key = random.split(self.key)
-    
+
         x1t = lhs_sampling(
             mins=[self.domain[0][0], self.domain[2][0]],
             maxs=[self.domain[0][1], self.domain[2][1]],
             num=self.n_samples**2 // 5,
-            key=key
+            key=key,
         )
         top = jnp.concatenate(
             [x1t[:, 0:1], jnp.ones_like(x1t[:, 0:1]) * self.domain[1][1], x1t[:, 1:2]],
@@ -103,7 +102,7 @@ class Sampler:
             mins=[self.domain[1][0], self.domain[2][0]],
             maxs=[self.domain[1][1], self.domain[2][1]],
             num=self.n_samples**2 // 5,
-            key=key
+            key=key,
         )
         left = jnp.concatenate(
             [jnp.ones_like(x2t[:, 0:1]) * self.domain[0][0], x2t[:, 0:1], x2t[:, 1:2]],
@@ -119,7 +118,7 @@ class Sampler:
             mins=[self.domain[0][0] / 20, self.domain[2][0] + self.domain[2][1] / 10],
             maxs=[self.domain[0][1] / 20, self.domain[2][1]],
             num=self.n_samples**2 // 5,
-            key=key
+            key=key,
         )
         local = jnp.concatenate(
             [x1t[:, 0:1], jnp.ones_like(x1t[:, 0:1]) * self.domain[1][0], x1t[:, 1:2]],
@@ -134,7 +133,7 @@ class Sampler:
             mins=[self.domain[0][0], self.domain[2][0]],
             maxs=[self.domain[0][1], self.domain[2][1]],
             num=self.n_samples**2 // 2,
-            key=key
+            key=key,
         )
         data = jnp.concatenate(
             [x1t[:, 0:1], jnp.ones_like(x1t[:, 0:1]) * self.domain[1][0], x1t[:, 1:2]],
@@ -144,7 +143,7 @@ class Sampler:
 
     def sample(self, pde_name="ac"):
         return (
-            self.sample_pde_rar(pde_name=pde_name),
+            self.sample_pde(),
             self.sample_ic(),
             self.sample_bc(),
             self.sample_flux(),

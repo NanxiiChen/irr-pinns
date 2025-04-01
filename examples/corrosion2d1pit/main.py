@@ -11,7 +11,7 @@ from pathlib import Path
 import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
-from jax import jit, random, vmap
+from jax import jit, random
 import orbax.checkpoint as ocp
 
 current_dir = Path(__file__).resolve().parent
@@ -29,8 +29,9 @@ from pinn import (
     MetricsTracker,
     train_step,
     create_train_state,
-    StaggerSwitch
+    StaggerSwitch,
 )
+
 
 class PFPINN(PINN):
     def __init__(self, *args, **kwargs):
@@ -43,7 +44,7 @@ class PFPINN(PINN):
             self.loss_irr,
         ]
         self.flux_idx = 1
-        
+
     @partial(jit, static_argnums=(0,))
     def ref_sol_bc(self, x, t):
         # x: (x1, x2)
