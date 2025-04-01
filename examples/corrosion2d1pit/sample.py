@@ -45,19 +45,20 @@ class Sampler:
         data = shifted_grid(
             self.mins,
             self.maxs,
-            [self.n_samples, self.n_samples, self.n_samples * 2],
+            [self.n_samples*2, self.n_samples, self.n_samples * 3],
             key,
         )
         return data[:, :-1], data[:, -1:]
 
     def sample_pde_rar(self, pde_name="ac"):
         key, self.key = random.split(self.key)
-        batch = shifted_grid(
-            self.mins,
-            self.maxs,
-            [self.n_samples * 2, self.n_samples, self.n_samples * 3],
-            key,
-        )
+        # batch = shifted_grid(
+        #     self.mins,
+        #     self.maxs,
+        #     [self.n_samples, self.n_samples, self.n_samples, self.n_samples * 3],
+        #     key,
+        # )
+        batch = jnp.concatenate(self.sample_pde(), axis=-1)
 
         def residual_fn(batch):
             model = self.adaptive_kw["model"]

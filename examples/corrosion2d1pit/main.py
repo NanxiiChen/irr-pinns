@@ -121,15 +121,16 @@ for epoch in range(cfg.EPOCHS):
         loss_fn,
         state,
         batch,
-        cfg.CAUSAL_CONFIGS["eps"],
+        cfg.CAUSAL_CONFIGS[f"{pde_name}_eps"],
     )
     if cfg.CAUSAL_WEIGHT:
-        cfg.CAUSAL_CONFIGS.update(
-            causal_weightor.update_causal_eps(
-                aux_vars["causal_weights"],
-                cfg.CAUSAL_CONFIGS,
-            )
+        new_eps = causal_weightor.update_causal_eps(
+            cfg.CAUSAL_CONFIGS[f"{pde_name}_eps"],
+            aux_vars["causal_weights"],
+            cfg.CAUSAL_CONFIGS,
         )
+        cfg.CAUSAL_CONFIGS.update({f"{pde_name}_eps": new_eps})
+
     stagger.step_epoch()
 
     if epoch % cfg.STAGGER_PERIOD == 0:
@@ -179,8 +180,9 @@ for epoch in range(cfg.EPOCHS):
             fig = pinn.causal_weightor.plot_causal_info(
                 aux_vars["causal_weights"],
                 aux_vars["loss_chunks"],
-                cfg.CAUSAL_CONFIGS["eps"],
+                cfg.CAUSAL_CONFIGS[f"{pde_name}_eps"],
             )
+            fig.suptitle(f"{pde_name}_eps: {cfg.CAUSAL_CONFIGS[f'{pde_name}_eps']:.2e}")
             metrics_tracker.register_figure(epoch, fig, "causal_info")
             plt.close(fig)
 

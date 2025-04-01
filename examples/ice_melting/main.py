@@ -96,9 +96,15 @@ for epoch in range(cfg.EPOCHS):
         cfg.CAUSAL_CONFIGS["eps"],
     )
     if cfg.CAUSAL_WEIGHT:
-        cfg.CAUSAL_CONFIGS.update(
-            causal_weightor.update_causal_eps(aux["causal_weights"], cfg.CAUSAL_CONFIGS)
+        # cfg.CAUSAL_CONFIGS.update(
+        #     causal_weightor.update_causal_eps(aux["causal_weights"], cfg.CAUSAL_CONFIGS)
+        # )
+        new_eps = causal_weightor.update_causal_eps(
+            cfg.CAUSAL_CONFIGS["eps"],
+            aux["causal_weights"],
+            cfg.CAUSAL_CONFIGS,
         )
+        cfg.CAUSAL_CONFIGS.update({f"eps": new_eps})
 
     if epoch % cfg.STAGGER_PERIOD == 0:
 
