@@ -7,7 +7,7 @@ from .causal import CausalWeightor
 from .evaluator import evaluate1D, evaluate2D, evaluate3D
 from .metrics import MetricsTracker
 # from .model import PINN
-from .sample import lhs_sampling, mesh_flat, shifted_grid
+from .sample import lhs_sampling, mesh_flat, shifted_grid, Sampler
 from .utils import StaggerSwitch
 from .train import train_step, create_train_state, StaggerSwitch
 

@@ -1,4 +1,6 @@
-from jax import random
+
+import jax
+from jax import random, vmap
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 
@@ -51,28 +53,91 @@ def shifted_grid(mins, maxs, nums, key, eps=1e-3):
     return data
 
 
-# def lhs_sampling(mins, maxs, num):
-#     lb = jnp.array(mins)
-#     ub = jnp.array(maxs)
-#     if not len(lb) == len(ub):
-#         raise ValueError(f"mins and maxs should have the same length.")
-#     ret = lhs(len(lb), int(num)) * (ub - lb) + lb
-#     # return [ret[:, :-1], ret[:, -1:]]
-#     return ret
+class Sampler:
 
-# In Jax
-# def shfted_grid(mins, maxs, num, key):
-#     if not len(mins) == len(maxs) == len(num):
-#         raise ValueError(f"mins, maxs, num should have the same length.")
+    def __init__(
+        self,
+        n_samples,
+        domain=((-0.5, 0.5), (0, 0.5), (0, 1)),
+        key=None,
+        adaptive_kw=None,
+    ):
+        self.n_samples = n_samples
+        self.domain = domain
+        self.key = key if key is not None else random.PRNGKey(0)
+        self.adaptive_kw = (
+            adaptive_kw
+            if adaptive_kw is not None
+            else {
+                "ratio": 10,
+                "num": 5000,
+            }
+        )
+        self.mins = [d[0] for d in domain]
+        self.maxs = [d[1] for d in domain]
 
-#     each_col = [jnp.linspace(mins[i], maxs[i], num[i])[1:-1]
-#                 for i in range(len(mins))]
-#     distances = [(maxs[i] - mins[i]) / (num[i] - 1) for i in range(len(mins))]
-#     shift = [random.uniform(key, (1,), minval=-distances[i], maxval=distances[i])
-#              for i in range(len(distances))]
-#     shift = jnp.concatenate(shift, axis=0)
-#     each_col = [each_col[i] + shift[i] for i in range(len(each_col))]
-#     return jnp.stack(mesh_flat(*each_col), axis=-1).reshape(-1, len(mins))
+    def sample_pde(self):
+        key, self.key = random.split(self.key)
+        data = shifted_grid(
+            self.mins,
+            self.maxs,
+            [self.n_samples, self.n_samples, self.n_samples * 3],
+            key,
+        )
+        return data[:, :-1], data[:, -1:]
+
+    def sample_pde_rar(self, fns, params):
+        key, self.key = random.split(self.key)
+        grid_key, lhs_key = random.split(key)
+        common_points = jnp.concatenate(self.sample_pde(), axis=-1)
+
+        adaptive_base = lhs_sampling(
+            self.mins,
+            self.maxs,
+            self.adaptive_kw["num"] * self.adaptive_kw["ratio"],
+            key=lhs_key,
+        )
+        x, t = adaptive_base[:, :-1], adaptive_base[:, -1:]
+        rar_points = jnp.zeros(
+            (self.adaptive_kw["num"] * len(fns), adaptive_base.shape[1])
+        )
+
+        for idx, fn in enumerate(fns):
+            res = jax.lax.stop_gradient(vmap(fn, in_axes=(None, 0, 0))(params, x, t))
+            _, indices = jax.lax.top_k(jnp.abs(res), self.adaptive_kw["num"])
+            selected_points = adaptive_base[indices]
+            rar_points = rar_points.at[
+                idx * self.adaptive_kw["num"] : (idx + 1) * self.adaptive_kw["num"], :
+            ].set(selected_points)
+
+        data = jnp.concatenate(
+            [
+                common_points,
+                rar_points,
+            ],
+            axis=0,
+        )
+        return data[:, :-1], data[:, -1:]
+
+    def sample_ic(self):
+        raise NotImplementedError("Initial condition sampling is not implemented.")
+
+    def sample_bc(self):
+        raise NotImplementedError("Boundary condition sampling is not implemented.")
+
+    def sample_flux(self):
+        raise NotImplementedError("Flux sampling is not implemented.")
+
+    def sample(self, *args, **kwargs):
+        return (
+            self.sample_pde_rar(*args, **kwargs),
+            self.sample_ic(),
+            self.sample_bc(),
+            self.sample_flux(),
+            self.sample_pde(),
+        )
+
+
 
 if __name__ == "__main__":
     mins = jnp.array([0, 0])

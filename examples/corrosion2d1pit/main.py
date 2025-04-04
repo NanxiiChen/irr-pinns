@@ -20,7 +20,7 @@ sys.path.append(str(project_root))
 
 from examples.corrosion2d1pit import (
     PINN,
-    Sampler,
+    CorrosionSampler,
     evaluate2D,
     cfg,
 )
@@ -33,7 +33,7 @@ from pinn import (
 )
 
 
-class PFPINN(PINN):
+class CorrosionPINN(PINN):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.loss_fn_panel = [
@@ -77,7 +77,7 @@ class PFPINN(PINN):
 
 
 causal_weightor = CausalWeightor(cfg.CAUSAL_CONFIGS["chunks"], cfg.DOMAIN[-1])
-pinn = PFPINN(config=cfg, causal_weightor=causal_weightor)
+pinn = CorrosionPINN(config=cfg, causal_weightor=causal_weightor)
 
 init_key = random.PRNGKey(0)
 model_key, sampler_key = random.split(init_key)
@@ -93,14 +93,12 @@ now = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
 log_path = f"{cfg.LOG_DIR}/{cfg.PREFIX}/{now}"
 metrics_tracker = MetricsTracker(log_path)
 ckpt = ocp.StandardCheckpointer()
-sampler = Sampler(
+sampler = CorrosionSampler(
     cfg.N_SAMPLES,
     domain=cfg.DOMAIN,
     key=sampler_key,
     adaptive_kw={
         "ratio": cfg.ADAPTIVE_BASE_RATE,
-        "model": pinn,
-        "params": state.params,
         "num": cfg.ADAPTIVE_SAMPLES,
     },
 )
@@ -113,9 +111,7 @@ for epoch in range(cfg.EPOCHS):
     loss_fn = pinn.loss_fn_ac if pde_name == "ac" else pinn.loss_fn_ch
 
     if epoch % cfg.STAGGER_PERIOD == 0:
-        sampler.adaptive_kw["params"].update(state.params)
-        batch = sampler.sample(pde_name=pde_name)
-        print(f"Epoch: {epoch}, PDE: {pde_name}")
+        batch = sampler.sample(fns=[pinn.net_ac, pinn.net_ch], params=state.params)
 
     state, (weighted_loss, loss_components, weight_components, aux_vars) = train_step(
         loss_fn,

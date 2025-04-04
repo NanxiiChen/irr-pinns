@@ -17,7 +17,7 @@ sys.path.append(str(project_root))
 
 from examples.ice_melting import (
     PINN,
-    Sampler,
+    IceMeltingSampler,
     evaluate3D,
     cfg,
 )
@@ -68,14 +68,12 @@ now = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
 log_path = f"{cfg.LOG_DIR}/{cfg.PREFIX}/{now}"
 metrics_tracker = MetricsTracker(log_path)
 ckpt = ocp.StandardCheckpointer()
-sampler = Sampler(
+sampler = IceMeltingSampler(
     cfg.N_SAMPLES,
     domain=cfg.DOMAIN,
     key=sampler_key,
     adaptive_kw={
         "ratio": cfg.ADAPTIVE_BASE_RATE,
-        "model": pinn,
-        "params": state.params,
         "num": cfg.ADAPTIVE_SAMPLES,
     },
 )
@@ -86,8 +84,7 @@ start_time = time.time()
 for epoch in range(cfg.EPOCHS):
 
     if epoch % cfg.STAGGER_PERIOD == 0:
-        sampler.adaptive_kw["params"].update(state.params)
-        batch = sampler.sample()
+        batch = sampler.sample(fns=(pinn.net_pde,), params=state.params)
 
     state, (weighted_loss, loss_components, weight_components, aux) = train_step(
         pinn.loss_fn,
