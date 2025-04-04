@@ -81,6 +81,7 @@ class PINN(nn.Module):
         div_sigma = jnp.sum(jac_sigma_x, axis=-1)
         
         return (1 - phi) ** 2 * div_sigma
+    
                 
         
         
