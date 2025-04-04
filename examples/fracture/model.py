@@ -72,7 +72,7 @@ class PINN(nn.Module):
             epsilon**2
         )
 
-    # 线弹性平衡方程
+    @partial(jit, static_argnums=(0,))
     def net_balance(self, params, x, t):
         # $$ (1 - \phi) **2 \nabla \cdot \sigma = 0 $$
         phi, disp = self.net_u(params, x, t)
@@ -80,9 +80,26 @@ class PINN(nn.Module):
         jac_sigma_x = jax.jacrev(self.sigma, argnums=0)(params, x, t)
         div_sigma = jnp.sum(jac_sigma_x, axis=-1)
         
-        return (1 - phi) ** 2 * div_sigma
+        balance = (1 - phi) ** 2 * div_sigma
+        
+        return balance
     
-                
+    
+    @partial(jit, static_argnums=(0,))
+    def net_pf(self, params, x, t):
+        phi, disp = self.net_u(params, x, t)
+        hess_phi_x = jax.hessian(lambda x, t: self.net_u(params, x, t)[0], argnums=0)(
+            x, t
+        )
+        lap_phi = jnp.linalg.trace(hess_phi_x)
+        
+        pf = (
+            self.cfg.GC * (phi / self.cfg.L - self.cfg.L * lap_phi)
+            - 2 * (1 - phi) * self.psi(params, x, t)
+        ) 
+        return pf
+        
+        
         
         
         
