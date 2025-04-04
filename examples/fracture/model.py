@@ -72,15 +72,16 @@ class PINN(nn.Module):
             epsilon**2
         )
 
-    def net_force(self, params, x, t):
+    # 线弹性平衡方程
+    def net_balance(self, params, x, t):
         # $$ (1 - \phi) **2 \nabla \cdot \sigma = 0 $$
         phi, disp = self.net_u(params, x, t)
         # 求应力张量的散度
-        div_sigma = jnp.sum(
-            jnp.einsum("ij,jk->ik", self.sigma(params, x, t), self.epsilon(params, x, t))
-            * (1 - phi) ** 2
-        )
+        jac_sigma_x = jax.jacrev(self.sigma, argnums=0)(params, x, t)
+        div_sigma = jnp.sum(jac_sigma_x, axis=-1)
         
+        return (1 - phi) ** 2 * div_sigma
+                
         
         
         
