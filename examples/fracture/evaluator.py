@@ -39,7 +39,7 @@ def evaluate2D(pinn, params, mesh, ref_path, ts, **kwargs):
             aspect="equal",
         )
 
-        ref_sol = jnp.load(f"{ref_path}/phi-{tic:.3f}.npy")
+        ref_sol = jnp.load(f"{ref_path}/phi-{tic:.4f}.npy")
 
         ax = plt.subplot(gs[idx, 1])
         error_bar = ax.scatter(
