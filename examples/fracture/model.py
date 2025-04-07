@@ -45,25 +45,20 @@ class PINN(nn.Module):
         # x: (d,), t: (1,)
         # phi: scalar, disp: (d,)
         sol = self.model.apply(params, x, t)
-        phi, disp = jnp.split(
-            sol,
-            [
-                1,
-            ],
-            axis=-1,
-        )
+        phi, disp = jnp.split(sol, [1], axis=-1)
         disp = disp / self.cfg.DISP_PRE_SCALE
         phi = nn.tanh(phi) / 2 + 0.5
         return phi, disp
 
+    @partial(jit, static_argnums=(0,))
     def epsilon(self, params, x, t):
         # epsilon: (d, d)
         # $$ \varepsilon = sym(\nabla u) = \frac{1}{2}(\nabla u + (\nabla u)^T) $$
         disp_fn = lambda x, t: self.net_u(params, x, t)[1]
         nabla_disp = jax.jacrev(disp_fn, argnums=0)(x, t)
-        assert nabla_disp.shape == (x.shape[-1], x.shape[-1])
         return (nabla_disp + nabla_disp.T) / 2
 
+    @partial(jit, static_argnums=(0,))
     def sigma(self, params, x, t):
         # sigma: (d, d)
         return 2.0 * self.cfg.MU * self.epsilon(
@@ -72,6 +67,7 @@ class PINN(nn.Module):
             x.shape[-1]
         )
 
+    @partial(jit, static_argnums=(0,))
     def psi(self, params, x, t):
         # psi: scalar
         epsilon = self.epsilon(params, x, t)
@@ -107,7 +103,7 @@ class PINN(nn.Module):
         pf = self.cfg.GC * (phi / self.cfg.L - self.cfg.L * lap_phi) - 2 * (
             1 - phi
         ) * self.psi(params, x, t)
-        
+
         return pf.squeeze() / self.cfg.PF_PRE_SCALE
 
     def net_speed(self, params, x, t):

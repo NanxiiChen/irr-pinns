@@ -94,7 +94,7 @@ class FracturePINN(PINN):
         ref = vmap(self.ref_sol_bc_crack, in_axes=(0, 0))(x, t)
         crack = jnp.mean((phi - ref) ** 2)
 
-        return bottom + top + crack
+        return bottom + 10*top + crack
 
 
 causal_weightor = CausalWeightor(cfg.CAUSAL_CONFIGS["chunks"], cfg.DOMAIN[-1])
@@ -164,6 +164,8 @@ for epoch in range(cfg.EPOCHS):
             Lc=cfg.Lc,
             Tc=cfg.Tc,
             val_range=(0, 1),
+            xlim=cfg.DOMAIN[0],
+            ylim=cfg.DOMAIN[1],
         )
 
         print(

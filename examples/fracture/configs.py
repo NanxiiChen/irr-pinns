@@ -12,10 +12,10 @@ class Config:
     DECAY = 0.9
     DECAY_EVERY = 200
     STAGGER_PERIOD = 25
-    EMB_SCALE = (1.5, 0.5)  # emb sacle for (x, t)
+    EMB_SCALE = (5.0, 2.0)  # emb sacle for (x, t)
     EMB_DIM = 64
 
-    DOMAIN = [[-0.5, 0.5], [0, 0.5], [0, 0.78]]
+    DOMAIN = [[-0.5, 0.5], [-0.5, 0.5], [0, 0.78]]
     DATA_PATH = "./data/fracture/"
     LOG_DIR = "/root/tf-logs"
     PREFIX = "corrosion/fracture/irr"
@@ -40,17 +40,17 @@ class Config:
 
     Lc = 1.0
     Tc = 1.0
-    DISP_PRE_SCALE = 1e3
-    STRESS_PRE_SCALE = 1e0
-    PF_PRE_SCALE = 1e0
+    DISP_PRE_SCALE = 1e2
+    STRESS_PRE_SCALE = 1e6
+    PF_PRE_SCALE = 1e3
 
     CAUSAL_CONFIGS = {
-        "stress_eps": 1e-5,
+        "stress_eps": 1e-2,
         "pf_eps": 1e-5,
         "step_size": 10,
         "max_last_weight": 0.99,
         "min_mean_weight": 0.5,
-        "max_eps": 1e0,
+        "max_eps": 1e2,
         "chunks": 24,
     }
 

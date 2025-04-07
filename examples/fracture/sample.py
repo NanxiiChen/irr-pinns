@@ -24,7 +24,6 @@ class FractureSampler(Sampler):
         self.mins = [d[0] for d in domain]
         self.maxs = [d[1] for d in domain]
 
-
     def sample_pde(self):
         key, self.key = random.split(self.key)
         data = shifted_grid(
@@ -35,7 +34,6 @@ class FractureSampler(Sampler):
         )
         return data[:, :-1], data[:, -1:]
 
-
     def sample_ic(self):
         key, self.key = random.split(self.key)
         x = lhs_sampling(
@@ -45,8 +43,10 @@ class FractureSampler(Sampler):
             key=key,
         )
         x_local = lhs_sampling(
-            mins=[self.domain[0][0], -0.1], maxs=[0.0, 0.1], 
-            num=self.n_samples**2 * 5, key=self.key
+            mins=[self.domain[0][0], -0.1],
+            maxs=[0.0, 0.1],
+            num=self.n_samples**2 * 5,
+            key=self.key,
         )
         x = jnp.concatenate([x, x_local], axis=0)
         t = jnp.zeros_like(x[:, 0:1])
@@ -81,11 +81,11 @@ class FractureSampler(Sampler):
             "crack": (crack[:, :-1], crack[:, -1:]),
         }
 
-
     def sample(self, *args, **kwargs):
+        rar = self.sample_pde_rar(*args, **kwargs)
         return (
-            self.sample_pde_rar(*args, **kwargs),
+            rar,
             self.sample_ic(),
             self.sample_bc(),
-            self.sample_pde(),
+            rar,
         )

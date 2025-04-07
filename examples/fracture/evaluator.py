@@ -8,11 +8,11 @@ from examples.ice_melting.configs import Config as cfg
 
 def evaluate2D(pinn, params, mesh, ref_path, ts, **kwargs):
     # fig, axes = plt.subplots(len(ts), 2, figsize=(10, 3*len(ts)))
-    fig = plt.figure(figsize=(10, 3 * len(ts)))
+    fig = plt.figure(figsize=(10, 5 * len(ts)))
     gs = GridSpec(len(ts), 3, width_ratios=[1, 1, 0.05])
     vmin, vmax = kwargs.get("val_range", (0, 1))
     xlim = kwargs.get("xlim", (-0.5, 0.5))
-    ylim = kwargs.get("ylim", (0, 0.5))
+    ylim = kwargs.get("ylim", (-0.5, 0.5))
     Lc = kwargs.get("Lc", 1.0)
     Tc = kwargs.get("Tc", 1.0)
     error = 0
@@ -21,14 +21,16 @@ def evaluate2D(pinn, params, mesh, ref_path, ts, **kwargs):
         t = jnp.ones_like(mesh[:, 0:1]) * tic / Tc
         pred = vmap(lambda x, t: pinn.net_u(params, x, t)[0], in_axes=(0, 0))(
             mesh, t
-        ).reshape(mesh.shape[0], 1)
+        ).squeeze()
 
         ax = plt.subplot(gs[idx, 0])
         ax.scatter(
             mesh[:, 0],
             mesh[:, 1],
-            c=pred[:, 0],
+            c=pred,
             cmap="coolwarm",
+            vmin=vmin,
+            vmax=vmax,
         )
         ax.set(
             xlabel="x",
