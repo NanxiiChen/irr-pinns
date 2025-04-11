@@ -45,7 +45,7 @@ class PINN(nn.Module):
         sol = self.model.apply(params, x, t)
         phi, disp = jnp.split(sol, [1], axis=-1)
         disp = disp / self.cfg.DISP_PRE_SCALE
-        phi = jnp.exp(-phi / 5)
+        phi = jnp.exp(-phi)
         return phi, disp
 
     @partial(jit, static_argnums=(0,))
@@ -96,12 +96,12 @@ class PINN(nn.Module):
         div_sigma = jnp.einsum("iji->j", jac_sigma_x)
 
         stress = (1 - phi) ** 2 * div_sigma
-        weights = jax.lax.stop_gradient(
-            jnp.sum(jnp.abs(stress), axis=-1) / (jnp.abs(stress) + 1e-6)
-        )
-        weighted_stress = jnp.sum(stress * weights, axis=-1)
+        # weights = jax.lax.stop_gradient(
+        #     jnp.sum(jnp.abs(stress), axis=-1) / (jnp.abs(stress) + 1e-8)
+        # )
+        # weighted_stress = jnp.sum(stress * weights, axis=-1)
 
-        # stress = jnp.sum(jnp.abs(stress), axis=-1)
+        weighted_stress = jnp.sum(jnp.abs(stress), axis=-1)
         return weighted_stress / self.cfg.STRESS_PRE_SCALE
 
     @partial(jit, static_argnums=(0,))
