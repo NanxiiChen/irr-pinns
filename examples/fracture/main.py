@@ -102,15 +102,15 @@ class FracturePINN(PINN):
         phi = phi[:, 0]
         ref = vmap(self.ref_sol_bc_top, in_axes=(0, 0))(x, t)
         # ux should be constant using poisson coefficient `nu`
-        epsilon = vmap(self.epsilon, in_axes=(None, 0, 0))(
-            params, x, t
-        )
-        eps_xx = epsilon[:, 0, 0]
-        eps_yy = epsilon[:, 1, 1]
+        # epsilon = vmap(self.epsilon, in_axes=(None, 0, 0))(
+        #     params, x, t
+        # )
+        # eps_xx = epsilon[:, 0, 0]
+        # eps_yy = epsilon[:, 1, 1]
         top = (
             jnp.mean((phi - ref[:, 0]) ** 2)
             + jnp.mean((uy - ref[:, 2]) ** 2) * 1e5
-            + jnp.mean((eps_xx + self.cfg.NU * eps_yy) ** 2) * 1e5
+            # + jnp.mean((eps_xx + self.cfg.NU * eps_yy) ** 2) * 1e5
         )
 
         x, t = batch["crack"]

@@ -6,7 +6,7 @@ Sharp-PINNs for pitting corrosion with 2d-1pit
 class Config:
     EPOCHS = 20000
     N_SAMPLES = 15
-    ADAPTIVE_SAMPLES = 8000
+    ADAPTIVE_SAMPLES = 5000
     ADAPTIVE_BASE_RATE = 5
     LR = 5e-4
     DECAY = 0.9
@@ -21,15 +21,15 @@ class Config:
     PREFIX = "fracture/irr"
     TS = [0.0000, 0.3000, 0.7000, 0.7400, 0.7800]
 
-    NUM_LAYERS = 10
-    HIDDEN_DIM = 128
+    NUM_LAYERS = 6
+    HIDDEN_DIM = 400
     OUT_DIM = 3
 
-    ACT_NAME = "gelu"
+    ACT_NAME = "tanh"
     ARCH_NAME = "modified_mlp"
     ASYMMETRIC = True
     FOURIER_EMB = True
-    CAUSAL_WEIGHT = True
+    CAUSAL_WEIGHT = False
     IRR = True
 
     GC = 2.7
