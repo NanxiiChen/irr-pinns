@@ -1,9 +1,12 @@
+from jax import numpy as jnp
+
+
 class Config:
     EPOCHS = 100000
     N_SAMPLES = 15
     ADAPTIVE_SAMPLES = 5000
     ADAPTIVE_BASE_RATE = 5
-    LR = 1e-4
+    LR = 5e-4
     DECAY = 0.9
     DECAY_EVERY = 2000
     STAGGER_PERIOD = 100
@@ -27,12 +30,12 @@ class Config:
     ACT_NAME = "gelu"
     ARCH_NAME = "modified_mlp"
     ASYMMETRIC = True
-    FOURIER_EMB = True
+    FOURIER_EMB = False
     CAUSAL_WEIGHT = True
     IRR = True
 
     GC = 2.7
-    L = 0.015
+    L = 0.024
     UR = 0.007
     LAMBDA = 121.1538e3
     MU = 80.7692e3
@@ -50,9 +53,13 @@ class Config:
         "step_size": 5,
         "max_last_weight": 0.99,
         "min_mean_weight": 0.5,
-        "max_eps": 1,
+        "max_eps": 0.1,
         "chunks": 24,
     }
+
+    @classmethod
+    def loading(cls, t):
+        return cls.UR * 1.0 / jnp.tanh(3.0) * jnp.tanh(3.0 * t)
 
 
 # if __name__ == "__main__":

@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from jax import random, vmap
 from matplotlib.gridspec import GridSpec
 
-from examples.ice_melting.configs import Config as cfg
+from examples.fracture.configs import Config as cfg
 
 
 def evaluate2D(pinn, params, mesh, ref_path, ts, **kwargs):
@@ -20,6 +20,7 @@ def evaluate2D(pinn, params, mesh, ref_path, ts, **kwargs):
     error_uy = 0
     mesh /= Lc
     for idx, tic in enumerate(ts):
+        disp_uy = cfg.loading(tic)
         t = jnp.ones_like(mesh[:, 0:1]) * tic / Tc
         pred_phi, pred_disp = vmap(
             lambda x, t: pinn.net_u(params, x, t), in_axes=(0, 0)
@@ -41,7 +42,7 @@ def evaluate2D(pinn, params, mesh, ref_path, ts, **kwargs):
         ax.set(
             xlabel="x",
             ylabel="y",
-            title=f"t={tic}: " + r"$\phi$",
+            title=r"$\phi$" + ", " + f"disp.: {disp_uy:.4f}",
             xlim=xlim,
             ylim=ylim,
             aspect="equal",
@@ -60,7 +61,7 @@ def evaluate2D(pinn, params, mesh, ref_path, ts, **kwargs):
         ax.set(
             xlabel="x",
             ylabel="y",
-            title=f"t={tic} : " + r"$u_x$",
+            title=r"$u_x$",
             xlim=xlim,
             ylim=ylim,
             aspect="equal",
@@ -79,7 +80,7 @@ def evaluate2D(pinn, params, mesh, ref_path, ts, **kwargs):
         ax.set(
             xlabel="x",
             ylabel="y",
-            title=f"t={tic} : " + r"$u_y$",
+            title=r"$u_y$",
             xlim=xlim,
             ylim=ylim,
             aspect="equal",

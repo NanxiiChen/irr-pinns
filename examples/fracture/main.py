@@ -45,7 +45,7 @@ class FracturePINN(PINN):
 
     def ref_sol_bc_top(self, x, t):
         # uy = 0.007 * 0.78 / np.tanh(3) * np.tanh(3 * t)
-        uy = self.cfg.UR * 0.78 / jnp.tanh(3.0) * jnp.tanh(3.0 * t[0])
+        uy = self.cfg.loading(t[0])
         return jax.lax.stop_gradient(jnp.array([0.0, 0.0, uy]))
 
     def ref_sol_bc_bottom(self, x, t):
