@@ -44,11 +44,8 @@ class PINN(nn.Module):
     def net_u(self, params, x, t):
         sol = self.model.apply(params, x, t)
         phi, disp = jnp.split(sol, [1], axis=-1)
-        # phi, disp = self.model.apply(params, x, t)
         disp = disp / self.cfg.DISP_PRE_SCALE
-        # phi = jnp.exp(-jnp.abs(phi))
         phi = jax.nn.tanh(phi) / 2 + 0.5
-        # phi = 1.1 * phi - 0.05
         return phi, disp
 
     @partial(jit, static_argnums=(0,))
@@ -59,10 +56,7 @@ class PINN(nn.Module):
         nabla_disp = jax.jacrev(lambda x, t: self.net_u(params, x, t)[1], argnums=0)(
             x, t
         )
-        return (
-            nabla_disp
-            + jnp.transpose(nabla_disp, axes=(1, 0))
-        ) / 2.0
+        return (nabla_disp + jnp.transpose(nabla_disp, axes=(1, 0))) / 2.0
 
     @partial(jit, static_argnums=(0,))
     def sigma(self, params, x, t):
@@ -93,15 +87,26 @@ class PINN(nn.Module):
 
     @partial(jit, static_argnums=(0,))
     def net_stress(self, params, x, t):
-        # $$ (1 - \phi) **2 \nabla \cdot \sigma = 0 $$
-        # sigma[i,j]: sigma_ij
-        # jac_sigma[i,j,k]: dsigma_ij / dx_k
-        # div_sigma[i]: dsigma_ij / dx_i
+        # $$ \nabla\cdot[(1-\phi)^2 \sigma] = (1-\phi)^2 \nabla\cdot\sigma - 2(1-\phi)\sigma\cdot\nabla\phi = 0 $$
         phi, _ = self.net_u(params, x, t)
+        # sigma[i,j]: sigma_ij
+        sigma = self.sigma(params, x, t)
+        # nabla_phi[i]: dphi / dx_i
+        nabla_phi = jax.jacrev(lambda x, t: self.net_u(params, x, t)[0], argnums=0)(
+            x, t
+        )[0]
+        # jac_sigma[i,j,k]: dsigma_ij / dx_k
         jac_sigma_x = jax.jacrev(self.sigma, argnums=1)(params, x, t)
-        div_sigma = jnp.einsum("iji->j", jac_sigma_x)
-        stress = (1 - phi) ** 2 * div_sigma
+        # div_sigma[i]: dsigma_ij / dx_i
+        div_sigma = jnp.einsum("ijj->i", jac_sigma_x)
+        # sigma_cdot_nabla_phi[i]: sigma_ij * dphi / dx_j
+        sigma_cdot_nabla_phi = jnp.einsum("ij,j->i", sigma, nabla_phi)
+
+        stress = (1 - phi) ** 2 * div_sigma - 2 * (1 - phi) * sigma_cdot_nabla_phi
         return stress / self.cfg.STRESS_PRE_SCALE
+
+        # stress = (1 - phi) ** 2 * div_sigma
+        # return stress / self.cfg.STRESS_PRE_SCALE
 
         # abs_stress = jnp.abs(stress)
         # weights = jax.lax.stop_gradient(

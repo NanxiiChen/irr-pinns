@@ -7,10 +7,10 @@ class Config:
     DECAY = 0.9
     DECAY_EVERY = 2000
     STAGGER_PERIOD = 100
-    EMB_SCALE = (0.5, 0.5)  # emb sacle for (x, t)
+    EMB_SCALE = (1.0, 1.0)  # emb sacle for (x, t)
     EMB_DIM = 64
 
-    DOMAIN = [[-0.5, 0.5], [-0.5, 0.5], [0, 0.8]]
+    DOMAIN = [[-0.5, 0.5], [-0.5, 0.5], [0, 1.0]]
     DIM = 2
     DATA_PATH = "./data/fracture/"
     LOG_DIR = "/root/autodl-tmp/tf-logs"
@@ -18,7 +18,7 @@ class Config:
     RESUME = None
     # RESUME = "/root/tf-logs/fracture/irr/baseline-5/model-8000/"
     # TS = [0.0000, 0.3000, 0.7000, 0.7400, 0.7800]
-    TS = [0.0000, 0.2000, 0.4000, 0.6000, 0.8000]
+    TS = [0.0000, 0.2500, 0.5000, 0.8000, 1.0000]
 
     NUM_LAYERS = 6
     HIDDEN_DIM = 200

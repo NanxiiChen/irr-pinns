@@ -8,7 +8,7 @@ from examples.ice_melting.configs import Config as cfg
 
 def evaluate2D(pinn, params, mesh, ref_path, ts, **kwargs):
     # fig, axes = plt.subplots(len(ts), 2, figsize=(10, 3*len(ts)))
-    fig = plt.figure(figsize=(4 * len(ts), 18))
+    fig = plt.figure(figsize=(4 * len(ts), 14))
     gs = GridSpec(6, len(ts), height_ratios=[1, 0.05] * 3)
     vmin, vmax = kwargs.get("val_range", (0, 1))
     xlim = kwargs.get("xlim", (-0.5, 0.5))
