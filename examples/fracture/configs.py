@@ -23,7 +23,7 @@ class Config:
     # TS = [0.0000, 0.3000, 0.7000, 0.7400, 0.7800]
     TS = [0.0000, 0.2500, 0.5000, 0.8000, 1.0000]
 
-    NUM_LAYERS = 6
+    NUM_LAYERS = 4
     HIDDEN_DIM = 400
     OUT_DIM = 3
 

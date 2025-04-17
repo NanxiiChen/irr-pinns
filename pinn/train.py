@@ -15,17 +15,13 @@ def create_train_state(model, rng, lr, **kwargs):
     params = model.init(rng, jnp.ones(xdim), jnp.ones(1))
     opt_method = kwargs.get("optimizer", "adam")
     if opt_method == "adam":
-        scheduler = optax.exponential_decay(lr, decay_every, decay, staircase=True)
-        optimizer = optax.chain(
-            optax.clip_by_global_norm(1.0),
-            optax.adam(scheduler),
-        )
+        scheduler = optax.exponential_decay(lr, decay_every, decay, staircase=False)
+        optimizer = optax.adam(scheduler)
     elif opt_method == "soap":
         optimizer = soap(
             learning_rate=lr,
             b1=0.99,
             b2=0.999,
-            weight_decay=0.01,
             precondition_frequency=2,
         )
     else:

@@ -45,8 +45,8 @@ class PINN(nn.Module):
         sol = self.model.apply(params, x, t)
         phi, disp = jnp.split(sol, [1], axis=-1)
         disp = disp / self.cfg.DISP_PRE_SCALE
-        # phi = jnp.exp(-jnp.abs(phi))
-        phi = jax.nn.tanh(phi / 3) / 2 + 0.5
+        phi = jnp.exp( - jax.nn.sigmoid(phi) * 5)
+        # phi = jax.nn.tanh(phi / 3) / 2 + 0.5
         return phi, disp
 
     @partial(jit, static_argnums=(0,))
@@ -73,18 +73,17 @@ class PINN(nn.Module):
     def psi(self, params, x, t):
         # psi: scalar
         epsilon = self.epsilon(params, x, t)
-        tr_eps = jnp.trace(epsilon)
-        pos_energy = (
-            (1 / 2)
-            * (self.cfg.LAMBDA + self.cfg.MU)
-            * ((tr_eps + jnp.abs(tr_eps)) / 2) ** 2
-        )
-        dev_eps = epsilon - tr_eps * jnp.eye(self.cfg.DIM) / self.cfg.DIM
-        l2_eps = jnp.linalg.norm(dev_eps, ord=2) ** 2
-        return pos_energy + self.cfg.MU * l2_eps
-        # return self.cfg.LAMBDA * jnp.trace(epsilon) ** 2 / 2 + self.cfg.MU * jnp.sum(
-        #     epsilon**2
+        # tr_eps = jnp.trace(epsilon)
+        # pos_energy = (
+        #     (1 / 2)
+        #     * (self.cfg.LAMBDA + self.cfg.MU)
+        #     * ((tr_eps + jnp.abs(tr_eps)) / 2) ** 2
         # )
+        # dev_eps = epsilon - tr_eps * jnp.eye(self.cfg.DIM) / self.cfg.DIM
+        # l2_eps = jnp.linalg.norm(dev_eps, ord=2) ** 2
+        # return pos_energy + self.cfg.MU * l2_eps
+        return self.cfg.LAMBDA * jnp.linalg.trace(epsilon) ** 2 / 2 \
+            + self.cfg.MU * jnp.linalg.trace(epsilon @ epsilon)
 
     @partial(jit, static_argnums=(0,))
     def net_stress(self, params, x, t):
