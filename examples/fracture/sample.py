@@ -140,7 +140,8 @@ class FractureSampler(Sampler):
         }
 
     def sample(self, *args, **kwargs):
-        rar = self.sample_pde_rar(*args, **kwargs)
+        # rar = self.sample_pde_rar(*args, **kwargs)
+        rar = self.sample_pde()
         return (
             rar,
             self.sample_ic(),

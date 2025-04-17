@@ -3,8 +3,8 @@ from jax import numpy as jnp
 
 class Config:
     EPOCHS = 100000
-    N_SAMPLES = 15
-    ADAPTIVE_SAMPLES = 1500
+    N_SAMPLES = 25
+    ADAPTIVE_SAMPLES = 2000
     ADAPTIVE_BASE_RATE = 5
     LR = 5e-4
     DECAY = 0.9
@@ -24,7 +24,7 @@ class Config:
     TS = [0.0000, 0.2500, 0.5000, 0.8000, 1.0000]
 
     NUM_LAYERS = 6
-    HIDDEN_DIM = 200
+    HIDDEN_DIM = 128
     OUT_DIM = 3
 
     ACT_NAME = "gelu"
@@ -54,12 +54,12 @@ class Config:
         "max_last_weight": 0.99,
         "min_mean_weight": 0.5,
         "max_eps": 0.1,
-        "chunks": 24,
+        "chunks": 12,
     }
 
     @classmethod
     def loading(cls, t):
-        return 0.007 / jnp.tanh(2.0) * jnp.tanh(2.0 * t)
+        return 0.008 / jnp.tanh(2.5) * jnp.tanh(2.5* t)
 
 
 # if __name__ == "__main__":
