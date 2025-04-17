@@ -29,7 +29,7 @@ class FractureSampler(Sampler):
         data = shifted_grid(
             self.mins,
             self.maxs,
-            [self.n_samples, self.n_samples, self.n_samples*2],
+            [self.n_samples, self.n_samples, self.n_samples * 2],
             key,
         )
 
@@ -72,13 +72,7 @@ class FractureSampler(Sampler):
                 idx * self.adaptive_kw["num"] : (idx + 1) * self.adaptive_kw["num"], :
             ].set(selected_points)
 
-        data = jnp.concatenate(
-            [
-                common_points,
-                rar_points,
-            ],
-            axis=0,
-        )
+        data = jnp.concatenate([common_points, rar_points], axis=0)
         return data[:, :-1], data[:, -1:]
 
     def sample_ic(self):
@@ -128,7 +122,7 @@ class FractureSampler(Sampler):
         )
 
         crack = lhs_sampling(
-            mins=[self.domain[0][0], -0.05, self.domain[2][0]],
+            mins=[self.domain[0][0], -0.05, self.domain[2][0] + 0.05],
             maxs=[0.0, 0.05, self.domain[2][1]],
             num=self.n_samples**2,
             key=self.key,

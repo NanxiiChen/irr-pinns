@@ -63,7 +63,12 @@ class FracturePINN(PINN):
         # if y > 0, phi = 0
         # elif y < 0, phi = exp(-|y| / l)
         # ux = 0, uy = 0
-        phi = jnp.exp(-jnp.abs(x[1] / self.cfg.L)) * jnp.where(x[0] < 0, 1, 0)
+        # phi = jnp.exp(-jnp.abs(x[1] / self.cfg.L)) * jnp.where(x[0] < 0, 1, 0)
+        phi = jnp.where(
+            (jnp.abs(x[1]) < self.cfg.L / 2) & (x[0] < 0),
+            1.0,
+            0.0,
+        )
         sol = jnp.stack([phi, 0.0, 0.0], axis=-1)
         return jax.lax.stop_gradient(sol)
 
@@ -119,7 +124,7 @@ class FracturePINN(PINN):
         ref = vmap(self.ref_sol_bc_crack, in_axes=(0, 0))(x, t)
         crack = jnp.mean((phi - ref) ** 2)
 
-        return bottom + 10*top + crack
+        return bottom + 10 * top + crack
 
     # def loss_poison(self, params, batch):
     #     x, t = batch
@@ -176,7 +181,7 @@ sampler = FractureSampler(
     },
 )
 
-stagger = StaggerSwitch(pde_names=["stress","pf"], stagger_period=cfg.STAGGER_PERIOD)
+stagger = StaggerSwitch(pde_names=["stress", "pf"], stagger_period=cfg.STAGGER_PERIOD)
 
 start_time = time.time()
 for epoch in range(cfg.EPOCHS):
@@ -184,9 +189,10 @@ for epoch in range(cfg.EPOCHS):
     loss_fn = pinn.loss_fn_stress if pde_name == "stress" else pinn.loss_fn_pf
 
     if epoch % cfg.STAGGER_PERIOD == 0:
-        batch = sampler.sample(fns=[
-            pinn.net_stress if pde_name == "stress" else pinn.net_pf
-        ], params=state.params)
+        batch = sampler.sample(
+            fns=[pinn.net_stress if pde_name == "stress" else pinn.net_pf],
+            params=state.params,
+        )
 
     state, (weighted_loss, loss_components, weight_components, aux_vars) = train_step(
         loss_fn,

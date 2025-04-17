@@ -88,7 +88,7 @@ class CausalWeightor:
             # print(f"Inc. eps to {causal_configs['eps']}")
             
             new_eps = eps * causal_configs["step_size"]
-            print(f"Inc. eps to {eps}")
+            print(f"Inc. eps to {new_eps}")
 
 
         if jnp.mean(causal_weight) < causal_configs["min_mean_weight"]:
@@ -97,7 +97,7 @@ class CausalWeightor:
             # )
             # print(f"Dec. eps to {causal_configs['eps']}")
             new_eps = eps / causal_configs["step_size"]
-            print(f"Dec. eps to {eps}")
+            print(f"Dec. eps to {new_eps}")
 
         return new_eps
 

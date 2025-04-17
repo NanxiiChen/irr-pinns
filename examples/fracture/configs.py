@@ -9,7 +9,7 @@ class Config:
     LR = 5e-4
     DECAY = 0.9
     DECAY_EVERY = 2000
-    STAGGER_PERIOD = 100
+    STAGGER_PERIOD = 50
     EMB_SCALE = (1.0, 2.0)  # emb sacle for (x, t)
     EMB_DIM = 64
 
@@ -19,12 +19,12 @@ class Config:
     LOG_DIR = "/root/autodl-tmp/tf-logs"
     PREFIX = "fracture/irr"
     RESUME = None
-    # RESUME = "/root/autodl-tmp/tf-logs/fracture/irr/baseline-model128_6-stage1-10k/model-10000/"
+    # RESUME = "/root/autodl-tmp/tf-logs/fracture/irr/baseline2-model128_8-stage1-5k//model-5000/"
     # TS = [0.0000, 0.3000, 0.7000, 0.7400, 0.7800]
     TS = [0.0000, 0.2500, 0.5000, 0.8000, 1.0000]
 
-    NUM_LAYERS = 6
-    HIDDEN_DIM = 200
+    NUM_LAYERS = 10
+    HIDDEN_DIM = 100
     OUT_DIM = 3
 
     ACT_NAME = "gelu"
@@ -54,7 +54,7 @@ class Config:
         "step_size": 5,
         "max_last_weight": 0.99,
         "min_mean_weight": 0.5,
-        "max_eps": 1,
+        "max_eps": 10,
         "chunks": 12,
     }
 
