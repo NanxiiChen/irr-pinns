@@ -63,7 +63,13 @@ class FracturePINN(PINN):
         # if y > 0, phi = 0
         # elif y < 0, phi = exp(-|y| / l)
         # ux = 0, uy = 0
-        phi = jnp.exp(-jnp.abs(x[1] / self.cfg.L)) * jnp.where(x[0] < 0, 1, 0)
+        # analytic solution
+        # phi = jnp.exp(-jnp.abs(x[1] / self.cfg.L)) * jnp.where(x[0] < 0, 1, 0)
+
+        # analytic solution with smooth transition at (0, 0)
+        phi = jnp.exp(-jnp.abs(x[1] / self.cfg.L)) * (1 - jax.nn.sigmoid(x[0]*200))
+
+        # Abrupt crack
         # phi = jnp.where(
         #     (jnp.abs(x[1]) < self.cfg.L / 2) & (x[0] < 0),
         #     1.0,
@@ -190,8 +196,8 @@ for epoch in range(cfg.EPOCHS):
 
     if epoch % cfg.STAGGER_PERIOD == 0:
         batch = sampler.sample(
-            # fns=[pinn.net_stress if pde_name == "stress" else pinn.net_pf],
-            fns=[pinn.psi],
+            fns=[pinn.net_stress if pde_name == "stress" else pinn.net_pf],
+            # fns=[pinn.psi],
             params=state.params,
         )
 

@@ -46,7 +46,7 @@ class FourierEmbedding(nn.Module):
 class RBFEmbedding(nn.Module):
     emb_dim: int = 64
     emb_scale: float = 0.1
-    emb_width: float = 0.01
+    emb_width: float = 0.05
 
     @nn.compact
     def __call__(self, x):

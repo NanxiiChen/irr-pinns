@@ -5,7 +5,7 @@ import jax.numpy as jnp
 from flax import linen as nn
 from jax import jit, random, vmap
 
-from pinn import CausalWeightor, MLP, ModifiedMLP
+from pinn import CausalWeightor, MLP, ModifiedMLP, ResNet
 
 
 class PINN(nn.Module):
@@ -25,7 +25,7 @@ class PINN(nn.Module):
             self.loss_bc,
             self.loss_irr,
         ]
-        arch = {"mlp": MLP, "modified_mlp": ModifiedMLP}
+        arch = {"mlp": MLP, "modified_mlp": ModifiedMLP, "resnet": ResNet}
         self.model = arch[self.cfg.ARCH_NAME](
             act_name=self.cfg.ACT_NAME,
             num_layers=self.cfg.NUM_LAYERS,
@@ -45,7 +45,7 @@ class PINN(nn.Module):
         sol = self.model.apply(params, x, t)
         phi, disp = jnp.split(sol, [1], axis=-1)
         disp = disp / self.cfg.DISP_PRE_SCALE
-        phi = jnp.exp(-jax.nn.sigmoid(phi) * 10)
+        # phi = jnp.exp(-jax.nn.sigmoid(phi) * 10)
         # phi = jax.nn.tanh(phi / 3) / 2 + 0.5
         return phi, disp
 
@@ -165,15 +165,15 @@ class PINN(nn.Module):
         else:
             raise ValueError(f"Unknown PDE name: {pde_name}")
 
-        nabla_phi_fn = jax.jacrev(
-            lambda params, x, t: self.net_u(params, x, t)[0], argnums=1
-        )
-        nabla_phi = vmap(
-            lambda params, x, t: nabla_phi_fn(params, x, t)[0], in_axes=(None, 0, 0)
-        )(params, x, t)
-        grad_phi = jax.lax.stop_gradient(jnp.linalg.norm(nabla_phi, ord=2, axis=-1))
-        weights = 1 / (1 + grad_phi)
-        residual = weights * residual
+        # nabla_phi_fn = jax.jacrev(
+        #     lambda params, x, t: self.net_u(params, x, t)[0], argnums=1
+        # )
+        # nabla_phi = vmap(
+        #     lambda params, x, t: nabla_phi_fn(params, x, t)[0], in_axes=(None, 0, 0)
+        # )(params, x, t)
+        # grad_phi = jax.lax.stop_gradient(jnp.linalg.norm(nabla_phi, ord=2, axis=-1))
+        # weights = 1 / (1 + grad_phi)
+        # residual = weights * residual
 
         if not self.cfg.CAUSAL_WEIGHT:
             return jnp.mean(residual**2), {}
