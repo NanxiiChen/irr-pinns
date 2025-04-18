@@ -11,7 +11,7 @@ class Config:
     DECAY_EVERY = 2000
     STAGGER_PERIOD = 50
     EMB_SCALE = (2.0, 2.0)  # emb sacle for (x, t)
-    EMB_DIM = 32
+    EMB_DIM = 64
 
     DOMAIN = [[-0.5, 0.5], [-0.5, 0.5], [0, 1.0]]
     DIM = 2
@@ -31,7 +31,7 @@ class Config:
     ARCH_NAME = "modified_mlp"
     OPTIMIZER = "adam"
     ASYMMETRIC = True
-    FOURIER_EMB = True
+    FOURIER_EMB = False
     CAUSAL_WEIGHT = True
     IRR = True
 
