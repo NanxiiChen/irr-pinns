@@ -44,8 +44,8 @@ class PINN(nn.Module):
     def net_u(self, params, x, t):
         sol = self.model.apply(params, x, t)
         phi, disp = jnp.split(sol, [1], axis=-1)
-        disp = disp / self.cfg.DISP_PRE_SCALE
-        phi = jnp.exp(-phi**2 * 5)
+        disp = disp * t / self.cfg.DISP_PRE_SCALE
+        phi = jnp.exp(-phi**2 * 10)
         # phi = jnp.exp(-jax.nn.sigmoid(phi) * 10)
         # phi = jax.nn.tanh(phi / 3) / 2 + 0.5
         return phi, disp
@@ -54,7 +54,6 @@ class PINN(nn.Module):
     def epsilon(self, params, x, t):
         # epsilon: (d, d)
         # $$ \varepsilon = sym(\nabla u) = \frac{1}{2}(\nabla u + (\nabla u)^T) $$
-        assert x.shape[0] == self.cfg.DIM
         nabla_disp = jax.jacrev(lambda x, t: self.net_u(params, x, t)[1], argnums=0)(
             x, t
         )
@@ -63,7 +62,6 @@ class PINN(nn.Module):
     @partial(jit, static_argnums=(0,))
     def sigma(self, params, x, t):
         # sigma: (d, d)
-        assert x.shape[0] == self.cfg.DIM
         return 2.0 * self.cfg.MU * self.epsilon(
             params, x, t
         ) + self.cfg.LAMBDA * jnp.trace(self.epsilon(params, x, t)) * jnp.eye(
@@ -77,12 +75,13 @@ class PINN(nn.Module):
         tr_eps = jnp.trace(epsilon)
         pos_energy = (
             (1 / 2)
-            * (self.cfg.LAMBDA + self.cfg.MU)
+            * (self.cfg.LAMBDA + self.cfg.MU *2/self.cfg.DIM)
             * ((tr_eps + jnp.abs(tr_eps)) / 2) ** 2
         )
         dev_eps = epsilon - tr_eps * jnp.eye(self.cfg.DIM) / self.cfg.DIM
-        l2_eps = jnp.linalg.norm(dev_eps, ord=2) ** 2
-        return pos_energy + self.cfg.MU * l2_eps
+        # l2_eps = jnp.linalg.norm(dev_eps, ord=2) ** 2
+        tr_deveps2 = jnp.linalg.trace(dev_eps @ dev_eps)
+        return pos_energy + self.cfg.MU * tr_deveps2
         # return self.cfg.LAMBDA * jnp.linalg.trace(epsilon) ** 2 / 2 \
         #     + self.cfg.MU * jnp.linalg.trace(epsilon @ epsilon)
 

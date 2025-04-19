@@ -43,6 +43,10 @@ class FracturePINN(PINN):
         ]
         self.flux_idx = 1
 
+    # def ref_sol_bc_top(self, x, t):
+    #     uy = self.cfg.loading(t[0])
+    #     return jax.lax.stop_gradient(jnp.array([0.0, 0.0, uy]))
+
     def ref_sol_bc_top(self, x, t):
         # uy = 0.007 * 0.78 / np.tanh(3) * np.tanh(3 * t)
         uy = self.cfg.loading(t[0])
@@ -67,7 +71,7 @@ class FracturePINN(PINN):
         # phi = jnp.exp(-jnp.abs(x[1] / self.cfg.L)) * jnp.where(x[0] < 0, 1, 0)
 
         # analytic solution with smooth transition at (0, 0)
-        phi = jnp.exp(-jnp.abs(x[1] / self.cfg.L)) * (1 - jax.nn.sigmoid(x[0]*200))
+        phi = jnp.exp(-jnp.abs(x[1] / self.cfg.L)) * (1 - jax.nn.sigmoid(x[0] * 200))
 
         # Abrupt crack
         # phi = jnp.where(
@@ -88,19 +92,19 @@ class FracturePINN(PINN):
 
     def loss_bc(self, params, batch):
 
-        x, t = batch["bottom"]
-        phi, disp = vmap(self.net_u, in_axes=(None, 0, 0))(params, x, t)
-        # sol = jnp.stack([phi[:, 0], disp[:, 0], disp[:, 1]], axis=-1)
-        ref = vmap(self.ref_sol_bc_bottom, in_axes=(0, 0))(x, t)
-        phi = phi[:, 0]
-        ux = disp[:, 0]
-        uy = disp[:, 1]
-        # bottom = jnp.mean((sol - ref) ** 2)
-        bottom = (
-            jnp.mean((phi - ref[:, 0]) ** 2)
-            + jnp.mean((ux - ref[:, 1]) ** 2) * 1e4
-            + jnp.mean((uy - ref[:, 2]) ** 2) * 1e4
-        )
+        # x, t = batch["bottom"]
+        # phi, disp = vmap(self.net_u, in_axes=(None, 0, 0))(params, x, t)
+        # # sol = jnp.stack([phi[:, 0], disp[:, 0], disp[:, 1]], axis=-1)
+        # ref = vmap(self.ref_sol_bc_bottom, in_axes=(0, 0))(x, t)
+        # phi = phi[:, 0]
+        # ux = disp[:, 0]
+        # uy = disp[:, 1]
+        # # bottom = jnp.mean((sol - ref) ** 2)
+        # bottom = (
+        #     jnp.mean((phi - ref[:, 0]) ** 2)
+        #     + jnp.mean((ux - ref[:, 1]) ** 2) * 1e4
+        #     + jnp.mean((uy - ref[:, 2]) ** 2) * 1e4
+        # )
 
         x, t = batch["top"]
         phi, disp = vmap(self.net_u, in_axes=(None, 0, 0))(params, x, t)
@@ -120,6 +124,12 @@ class FracturePINN(PINN):
             # + jnp.mean((eps_xx + self.cfg.NU * eps_yy) ** 2) * 1e4
         )
 
+        # top = (
+        #     jnp.mean((phi - ref[:, 0]) ** 2)
+        #     + jnp.mean((ux - ref[:, 1]) ** 2) * 1e5
+        #     + jnp.mean((uy - ref[:, 2]) ** 2) * 1e4
+        # )
+
         x, t = batch["crack"]
         phi = vmap(
             lambda x, t: self.net_u(params, x, t)[0],
@@ -130,7 +140,7 @@ class FracturePINN(PINN):
         ref = vmap(self.ref_sol_bc_crack, in_axes=(0, 0))(x, t)
         crack = jnp.mean((phi - ref) ** 2)
 
-        return bottom + 10 * top + crack
+        return  10 * top + crack
 
     # def loss_poison(self, params, batch):
     #     x, t = batch
@@ -158,7 +168,7 @@ state = create_train_state(
     cfg.LR,
     decay=cfg.DECAY,
     decay_every=cfg.DECAY_EVERY,
-    xdim=len(cfg.DOMAIN) - 1,
+    xdim=cfg.DIM,
     optimizer=cfg.OPTIMIZER,
 )
 
@@ -191,13 +201,27 @@ stagger = StaggerSwitch(pde_names=["stress", "pf"], stagger_period=cfg.STAGGER_P
 
 start_time = time.time()
 for epoch in range(cfg.EPOCHS):
+
+    if epoch == cfg.CHANGE_OPT_AT:
+        print("Change optimizer to SOAP")
+        current_params = state.params
+        state = create_train_state(
+            pinn.model,
+            model_key,
+            cfg.LR,
+            xdim=cfg.DIM,
+            optimizer="soap",
+        )
+        state = state.replace(params=current_params)
+
+
     pde_name = stagger.decide_pde()
     loss_fn = pinn.loss_fn_stress if pde_name == "stress" else pinn.loss_fn_pf
 
     if epoch % cfg.STAGGER_PERIOD == 0:
         batch = sampler.sample(
-            fns=[pinn.net_stress if pde_name == "stress" else pinn.net_pf],
-            # fns=[pinn.psi],
+            # fns=[pinn.net_stress if pde_name == "stress" else pinn.net_pf],
+            fns=[pinn.psi],
             params=state.params,
         )
 

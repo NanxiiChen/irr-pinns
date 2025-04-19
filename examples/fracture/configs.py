@@ -30,6 +30,7 @@ class Config:
     ACT_NAME = "gelu"
     ARCH_NAME = "modified_mlp"
     OPTIMIZER = "adam"
+    CHANGE_OPT_AT = 5000
     ASYMMETRIC = True
     FOURIER_EMB = False
     CAUSAL_WEIGHT = True
@@ -37,7 +38,7 @@ class Config:
 
     GC = 2.7
     L = 0.024
-    UR = 0.0075
+    UR = 0.007
     LAMBDA = 121.1538e3
     MU = 80.7692e3
     NU = 0.3

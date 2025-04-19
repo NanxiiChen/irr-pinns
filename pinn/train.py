@@ -5,7 +5,7 @@ import jax.numpy as jnp
 import optax
 from flax.training import train_state
 from jax import jit
-from .soap import soap as soap
+from .soap import soap
 
 
 def create_train_state(model, rng, lr, **kwargs):
@@ -14,12 +14,12 @@ def create_train_state(model, rng, lr, **kwargs):
     xdim = kwargs.get("xdim", 3)
     params = model.init(rng, jnp.ones(xdim), jnp.ones(1))
     opt_method = kwargs.get("optimizer", "adam")
+    scheduler = optax.exponential_decay(lr, decay_every, decay, staircase=False)
     if opt_method == "adam":
-        scheduler = optax.exponential_decay(lr, decay_every, decay, staircase=False)
         optimizer = optax.adam(scheduler)
     elif opt_method == "soap":
         optimizer = soap(
-            learning_rate=lr,
+            learning_rate=scheduler,
             b1=0.99,
             b2=0.999,
             precondition_frequency=2,
