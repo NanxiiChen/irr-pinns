@@ -24,13 +24,13 @@ class Config:
     TS = [0.0000, 0.2500, 0.5000, 0.8000, 1.0000]
 
     NUM_LAYERS = 6
-    HIDDEN_DIM = 200
+    HIDDEN_DIM = 256
     OUT_DIM = 3
 
     ACT_NAME = "gelu"
     ARCH_NAME = "modified_mlp"
     OPTIMIZER = "adam"
-    CHANGE_OPT_AT = 5000
+    CHANGE_OPT_AT = 3000
     ASYMMETRIC = True
     FOURIER_EMB = False
     CAUSAL_WEIGHT = True
