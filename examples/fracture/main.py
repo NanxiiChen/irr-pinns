@@ -92,19 +92,19 @@ class FracturePINN(PINN):
 
     def loss_bc(self, params, batch):
 
-        # x, t = batch["bottom"]
-        # phi, disp = vmap(self.net_u, in_axes=(None, 0, 0))(params, x, t)
-        # # sol = jnp.stack([phi[:, 0], disp[:, 0], disp[:, 1]], axis=-1)
-        # ref = vmap(self.ref_sol_bc_bottom, in_axes=(0, 0))(x, t)
-        # phi = phi[:, 0]
-        # ux = disp[:, 0]
-        # uy = disp[:, 1]
-        # # bottom = jnp.mean((sol - ref) ** 2)
-        # bottom = (
-        #     jnp.mean((phi - ref[:, 0]) ** 2)
-        #     + jnp.mean((ux - ref[:, 1]) ** 2) * 1e4
-        #     + jnp.mean((uy - ref[:, 2]) ** 2) * 1e4
-        # )
+        x, t = batch["bottom"]
+        phi, disp = vmap(self.net_u, in_axes=(None, 0, 0))(params, x, t)
+        # sol = jnp.stack([phi[:, 0], disp[:, 0], disp[:, 1]], axis=-1)
+        ref = vmap(self.ref_sol_bc_bottom, in_axes=(0, 0))(x, t)
+        phi = phi[:, 0]
+        ux = disp[:, 0]
+        uy = disp[:, 1]
+        # bottom = jnp.mean((sol - ref) ** 2)
+        bottom = (
+            jnp.mean((phi - ref[:, 0]) ** 2)
+            + jnp.mean((ux - ref[:, 1]) ** 2) * 1e4
+            + jnp.mean((uy - ref[:, 2]) ** 2) * 1e4
+        )
 
         x, t = batch["top"]
         phi, disp = vmap(self.net_u, in_axes=(None, 0, 0))(params, x, t)
@@ -140,7 +140,7 @@ class FracturePINN(PINN):
         ref = vmap(self.ref_sol_bc_crack, in_axes=(0, 0))(x, t)
         crack = jnp.mean((phi - ref) ** 2)
 
-        return  10 * top + crack
+        return  10 * top + crack + bottom
 
     # def loss_poison(self, params, batch):
     #     x, t = batch
