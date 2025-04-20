@@ -19,12 +19,12 @@ class PINN(nn.Module):
 
         self.cfg = config
         self.flux_idx = 1
-        self.loss_fn_panel = [
-            self.loss_pde,
-            self.loss_ic,
-            self.loss_bc,
-            self.loss_irr,
-        ]
+        # self.loss_fn_panel = [
+        #     self.loss_pde,
+        #     self.loss_ic,
+        #     self.loss_bc,
+        #     self.loss_irr,
+        # ]
         arch = {"mlp": MLP, "modified_mlp": ModifiedMLP, "resnet": ResNet}
         self.model = arch[self.cfg.ARCH_NAME](
             act_name=self.cfg.ACT_NAME,
@@ -45,9 +45,7 @@ class PINN(nn.Module):
         sol = self.model.apply(params, x, t)
         phi, disp = jnp.split(sol, [1], axis=-1)
         disp = disp * t / self.cfg.DISP_PRE_SCALE
-        phi = jnp.exp(-phi**2 * 10)
-        # phi = jnp.exp(-jax.nn.sigmoid(phi) * 10)
-        # phi = jax.nn.tanh(phi / 3) / 2 + 0.5
+        phi = jnp.exp(-phi**2*10)
         return phi, disp
 
     @partial(jit, static_argnums=(0,))
@@ -133,21 +131,6 @@ class PINN(nn.Module):
 
     def ref_sol_bc(self, x, t):
         raise NotImplementedError
-
-    # def net_nabla(
-    #     self,
-    #     params,
-    #     x,
-    #     t,
-    # ):
-    #     idx = self.flux_idx
-    #     nabla_phi_part = jax.jacrev(
-    #         lambda x, t: self.net_u(params, x, t)[0], argnums=0
-    #     )(x, t)[idx]
-    #     nabla_c_part = jax.jacrev(lambda x, t: self.net_u(params, x, t)[1], argnums=0)(
-    #         x, t
-    #     )[idx]
-    #     return nabla_phi_part, nabla_c_part
 
     @partial(jit, static_argnums=(0, 4))
     def loss_pde(self, params, batch, eps, pde_name: str):
