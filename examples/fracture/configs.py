@@ -37,7 +37,7 @@ class Config:
     IRR = True
 
     GC = 2.7
-    L = 0.015
+    L = 0.024
     UR = 0.0065
     LAMBDA = 121.1538e3
     MU = 80.7692e3

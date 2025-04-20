@@ -45,7 +45,7 @@ class PINN(nn.Module):
         sol = self.model.apply(params, x, t)
         phi, disp = jnp.split(sol, [1], axis=-1)
         disp = disp * t / self.cfg.DISP_PRE_SCALE
-        phi = jnp.exp(-phi**2*10)
+        phi = jnp.exp(-phi**2*5)
         return phi, disp
 
     @partial(jit, static_argnums=(0,))
@@ -140,7 +140,7 @@ class PINN(nn.Module):
             residual = vmap(self.net_stress, in_axes=(None, 0, 0))(params, x, t)
             sum_abs_res = jnp.sum(jnp.abs(residual), axis=0)
             weights = jax.lax.stop_gradient(
-                jnp.sum(sum_abs_res, axis=-1) / (sum_abs_res + 1e-5)
+                jnp.sum(sum_abs_res, axis=-1) / (sum_abs_res + 1e-6)
             )
             residual = jnp.sum(jnp.abs(residual) * weights, axis=-1)
         elif pde_name == "pf":
@@ -148,15 +148,15 @@ class PINN(nn.Module):
         else:
             raise ValueError(f"Unknown PDE name: {pde_name}")
 
-        nabla_phi_fn = jax.jacrev(
-            lambda params, x, t: self.net_u(params, x, t)[0], argnums=1
-        )
-        nabla_phi = vmap(
-            lambda params, x, t: nabla_phi_fn(params, x, t)[0], in_axes=(None, 0, 0)
-        )(params, x, t)
-        grad_phi = jax.lax.stop_gradient(jnp.linalg.norm(nabla_phi, ord=2, axis=-1))
-        weights = 1 / (1 + grad_phi)
-        residual = weights * residual
+        # nabla_phi_fn = jax.jacrev(
+        #     lambda params, x, t: self.net_u(params, x, t)[0], argnums=1
+        # )
+        # nabla_phi = vmap(
+        #     lambda params, x, t: nabla_phi_fn(params, x, t)[0], in_axes=(None, 0, 0)
+        # )(params, x, t)
+        # grad_phi = jax.lax.stop_gradient(jnp.linalg.norm(nabla_phi, ord=2, axis=-1))
+        # weights = 1 / (1 + grad_phi)
+        # residual = weights * residual
 
         if not self.cfg.CAUSAL_WEIGHT:
             return jnp.mean(residual**2), {}

@@ -137,4 +137,4 @@ class FractureSampler(Sampler):
         pde = self.sample_pde_rar(*args, **kwargs)
         ic = self.sample_ic()
         bc = self.sample_bc()
-        return [pde, ic, bc["top"], bc["bottom"], bc["bottom"], bc["crack"], pde]
+        return [pde, ic, bc["bottom"], bc["bottom"], bc["top"], bc["crack"], pde]
