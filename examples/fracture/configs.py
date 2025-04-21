@@ -23,8 +23,8 @@ class Config:
     # TS = [0.0000, 0.3000, 0.7000, 0.7400, 0.7800]
     TS = [0.0000, 0.2500, 0.5000, 0.8000, 1.0000]
 
-    NUM_LAYERS = 10
-    HIDDEN_DIM = 256
+    NUM_LAYERS = 6
+    HIDDEN_DIM = 200
     OUT_DIM = 3
 
     ACT_NAME = "gelu"
