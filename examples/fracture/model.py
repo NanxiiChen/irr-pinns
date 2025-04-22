@@ -116,6 +116,8 @@ class PINN(nn.Module):
             1 - phi
         ) * self.psi(params, x, t)
 
+        # dphi_dt = self.net_speed(params, x, t).squeeze(-1)
+
         return pf / self.cfg.PF_PRE_SCALE
 
     def net_speed(self, params, x, t):
