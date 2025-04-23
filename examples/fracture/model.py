@@ -99,8 +99,12 @@ class PINN(nn.Module):
         div_sigma = jnp.einsum("ijj->i", jac_sigma_x)
         # sigma_cdot_nabla_phi[i]: sigma_ij * dphi / dx_j
         sigma_cdot_nabla_phi = jnp.einsum("ij,j->i", sigma, nabla_phi)
-
         stress = (1 - phi) ** 2 * div_sigma - 2 * (1 - phi) * sigma_cdot_nabla_phi
+        # point-wise weight
+        # weights = jax.lax.stop_gradient(
+        #     jnp.sum(stress**2, axis=-1) / (stress**2 + 1e-6)
+        # )
+        # stress = jnp.sum(stress**2 * weights, axis=-1)
         return stress / self.cfg.STRESS_PRE_SCALE
 
     @partial(jit, static_argnums=(0,))

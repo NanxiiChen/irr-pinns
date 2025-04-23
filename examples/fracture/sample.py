@@ -29,7 +29,7 @@ class FractureSampler(Sampler):
         data = shifted_grid(
             self.mins,
             self.maxs,
-            [self.n_samples, self.n_samples, self.n_samples * 2],
+            [self.n_samples, self.n_samples, self.n_samples],
             key,
         )
 
@@ -62,8 +62,14 @@ class FractureSampler(Sampler):
 
         for idx, fn in enumerate(fns):
             res = jax.lax.stop_gradient(vmap(fn, in_axes=(None, 0, 0))(params, x, t))
-            res = res.reshape(self.adaptive_kw["num"] * self.adaptive_kw["ratio"], -1)
-            res = jnp.linalg.norm(res, ord=1, axis=-1)
+            if res.ndim > 1:
+                sum_abs_res = jnp.sum(jnp.abs(res), axis=0)
+                weights = jax.lax.stop_gradient(
+                    jnp.sum(sum_abs_res, axis=-1) / (sum_abs_res + 1e-6)
+                )
+                res = jnp.sum(jnp.abs(res) * weights[None, :], axis=-1)
+            # res = res.reshape(self.adaptive_kw["num"] * self.adaptive_kw["ratio"], -1)
+            # res = jnp.linalg.norm(res, ord=1, axis=-1)
             _, indices = jax.lax.top_k(jnp.abs(res), self.adaptive_kw["num"])
             selected_points = adaptive_base[indices]
             rar_points = rar_points.at[
@@ -133,8 +139,8 @@ class FractureSampler(Sampler):
         }
 
     def sample(self, *args, **kwargs):
-        # rar = self.sample_pde_rar(*args, **kwargs)
         pde = self.sample_pde_rar(*args, **kwargs)
+        # pde = self.sample_pde()
         ic = self.sample_ic()
         bc = self.sample_bc()
         return [pde, ic, bc["bottom"], bc["bottom"], bc["top"], bc["top"], bc["crack"], pde]

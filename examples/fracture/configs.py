@@ -3,9 +3,9 @@ from jax import numpy as jnp
 
 class Config:
     EPOCHS = 100000
-    N_SAMPLES = 15
-    ADAPTIVE_SAMPLES = 2000
-    ADAPTIVE_BASE_RATE = 5
+    N_SAMPLES = 20
+    ADAPTIVE_SAMPLES = 1500
+    ADAPTIVE_BASE_RATE = 3
     LR = 5e-4
     DECAY = 0.9
     DECAY_EVERY = 2000
@@ -46,7 +46,7 @@ class Config:
     Lc = 1.0
     Tc = 1.0
     DISP_PRE_SCALE = 1e2
-    STRESS_PRE_SCALE = 1e5
+    STRESS_PRE_SCALE = 1e8
     PF_PRE_SCALE = 1e2
 
     CAUSAL_CONFIGS = {
