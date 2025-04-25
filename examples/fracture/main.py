@@ -2,11 +2,12 @@ import datetime
 import sys
 import time
 from pathlib import Path
+from functools import partial
 
 import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
-from jax import random, vmap
+from jax import random, vmap, jit
 import orbax.checkpoint as ocp
 
 current_dir = Path(__file__).resolve().parent
@@ -41,6 +42,7 @@ class FracturePINN(PINN):
             self.loss_bc_bottom_u,
             self.loss_bc_top_u,
             self.loss_bc_crack,
+            self.loss_bc_right,
             self.loss_irr,
         ]
         self.flux_idx = 1
@@ -115,7 +117,6 @@ class FracturePINN(PINN):
         return top
 
     def loss_bc_crack(self, params, batch):
-
         x, t = batch
         phi = vmap(
             lambda x, t: self.net_u(params, x, t)[0],
@@ -127,6 +128,19 @@ class FracturePINN(PINN):
         crack = jnp.mean((phi - ref) ** 2)
 
         return crack
+    
+    @partial(jit, static_argnums=(0,))
+    def loss_bc_right(self, params, batch):
+        x, t = batch
+        nabla_phi_fn = jax.jacrev(
+            lambda params, x, t: self.net_u(params, x, t)[0], argnums=1
+        )
+        dphi_dx = vmap(
+            lambda params, x, t: nabla_phi_fn(params, x, t)[0,0], 
+            in_axes=(None, 0, 0)
+        )(params, x, t)
+        return jnp.mean(dphi_dx**2)
+        
 
 
 causal_first_point = 0.3
@@ -257,12 +271,14 @@ for epoch in range(cfg.EPOCHS):
                 "loss/bc_bottom_u",
                 "loss/bc_top_u",
                 "loss/bc_crack",
+                "loss/bc_right",
                 "loss/irr",
                 f"weight/{pde_name}",
                 "weight/ic",
                 "weight/bc_bottom_u",
                 "weight/bc_top_u",
                 "weight/bc_crack",
+                "weight/bc_right",
                 "weight/irr",
                 "error/error_phi",
                 "error/error_ux",

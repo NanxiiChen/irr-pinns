@@ -4,7 +4,7 @@ from jax import numpy as jnp
 class Config:
     EPOCHS = 100000
     N_SAMPLES = 20
-    ADAPTIVE_SAMPLES = 1500
+    ADAPTIVE_SAMPLES = 8000
     ADAPTIVE_BASE_RATE = 5
     LR = 5e-4
     DECAY = 0.9
@@ -24,13 +24,13 @@ class Config:
     TS = [0.0000, 0.2500, 0.5000, 0.8000, 1.0000]
 
     NUM_LAYERS = 6
-    HIDDEN_DIM = 400
+    HIDDEN_DIM = 200
     OUT_DIM = 3
 
     ACT_NAME = "snake"
     ARCH_NAME = "modified_mlp"
     OPTIMIZER = "adam"
-    CHANGE_OPT_AT = 2000
+    CHANGE_OPT_AT = 10000
     ASYMMETRIC = True
     FOURIER_EMB = False
     CAUSAL_WEIGHT = True
@@ -38,7 +38,7 @@ class Config:
 
     GC = 2.7
     L = 0.024
-    UR = 0.007
+    UR = 0.0075
     LAMBDA = 121.1538e3
     MU = 80.7692e3
     NU = 0.3
@@ -60,9 +60,9 @@ class Config:
     }
 
     @classmethod
-    def loading(cls, t):
+    def loading(cls, t, alpha=2.0):
         # return cls.UR * t
-        return cls.UR / jnp.tanh(2) * jnp.tanh(2.* t)
+        return cls.UR / jnp.tanh(alpha) * jnp.tanh(alpha * t)
 
 
 # if __name__ == "__main__":

@@ -135,6 +135,7 @@ class FractureSampler(Sampler):
         return {
             "top": (top[:, :-1], top[:, -1:]),
             "bottom": (bottom[:, :-1], bottom[:, -1:]),
+            "right": (right[:, :-1], right[:, -1:]),
             "crack": (crack[:, :-1], crack[:, -1:]),
         }
 
@@ -143,4 +144,4 @@ class FractureSampler(Sampler):
         # pde = self.sample_pde()
         ic = self.sample_ic()
         bc = self.sample_bc()
-        return [pde, ic, bc["bottom"], bc["top"], bc["crack"], pde]
+        return [pde, ic, bc["bottom"], bc["top"], bc["crack"], bc["right"], pde]
