@@ -146,9 +146,9 @@ class PINN(nn.Module):
 
         if pde_name == "stress":
             residual = vmap(self.net_stress, in_axes=(None, 0, 0))(params, x, t)
-            sum_abs_res = jnp.sum(jnp.abs(residual), axis=0)
+            mse_res = jnp.mean(residual**2, axis=0)
             weights = jax.lax.stop_gradient(
-                jnp.sum(sum_abs_res, axis=-1) / (sum_abs_res + 1e-6)
+                jnp.sqrt(jnp.sum(mse_res, axis=-1) / (mse_res + 1e-6))
             )
             residual = jnp.sum(jnp.abs(residual) * weights, axis=-1)
         elif pde_name == "pf":

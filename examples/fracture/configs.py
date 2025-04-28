@@ -3,13 +3,13 @@ from jax import numpy as jnp
 
 class Config:
     EPOCHS = 100000
-    N_SAMPLES = 20
-    ADAPTIVE_SAMPLES = 5000
+    N_SAMPLES = 30
+    ADAPTIVE_SAMPLES = 1000
     ADAPTIVE_BASE_RATE = 5
     LR = 5e-4
     DECAY = 0.9
-    DECAY_EVERY = 2000
-    STAGGER_PERIOD = 50
+    DECAY_EVERY = 5000
+    STAGGER_PERIOD = 10
     EMB_SCALE = (2.0, 2.0)  # emb sacle for (x, t)
     EMB_DIM = 64
 
@@ -23,14 +23,14 @@ class Config:
     # TS = [0.0000, 0.3000, 0.7000, 0.7400, 0.7800]
     TS = [0.0000, 0.2500, 0.5000, 0.8000, 1.0000]
 
-    NUM_LAYERS = 6
-    HIDDEN_DIM = 200
+    NUM_LAYERS = 4
+    HIDDEN_DIM = 400
     OUT_DIM = 3
 
     ACT_NAME = "snake"
     ARCH_NAME = "modified_mlp"
     OPTIMIZER = "adam"
-    CHANGE_OPT_AT = 5000
+    CHANGE_OPT_AT = 5000000  # means not change to soap
     ASYMMETRIC = True
     FOURIER_EMB = False
     CAUSAL_WEIGHT = True

@@ -63,9 +63,9 @@ class FractureSampler(Sampler):
         for idx, fn in enumerate(fns):
             res = jax.lax.stop_gradient(vmap(fn, in_axes=(None, 0, 0))(params, x, t))
             if res.ndim > 1:
-                sum_abs_res = jnp.sum(jnp.abs(res), axis=0)
+                mse_res = jnp.sum(res**2, axis=0)
                 weights = jax.lax.stop_gradient(
-                    jnp.sum(sum_abs_res, axis=-1) / (sum_abs_res + 1e-6)
+                    jnp.sqrt(jnp.sum(mse_res, axis=-1) / (mse_res + 1e-6))
                 )
                 res = jnp.sum(jnp.abs(res) * weights[None, :], axis=-1)
             # res = res.reshape(self.adaptive_kw["num"] * self.adaptive_kw["ratio"], -1)
