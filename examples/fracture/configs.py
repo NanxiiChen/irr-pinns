@@ -4,11 +4,11 @@ from jax import numpy as jnp
 class Config:
     EPOCHS = 100000
     N_SAMPLES = 30
-    ADAPTIVE_SAMPLES = 1000
+    ADAPTIVE_SAMPLES = 500
     ADAPTIVE_BASE_RATE = 5
     LR = 5e-4
     DECAY = 0.9
-    DECAY_EVERY = 5000
+    DECAY_EVERY = 1000
     STAGGER_PERIOD = 10
     EMB_SCALE = (2.0, 2.0)  # emb sacle for (x, t)
     EMB_DIM = 64
@@ -30,10 +30,10 @@ class Config:
     ACT_NAME = "snake"
     ARCH_NAME = "modified_mlp"
     OPTIMIZER = "adam"
-    CHANGE_OPT_AT = 5000000  # means not change to soap
+    CHANGE_OPT_AT = 5000000
     ASYMMETRIC = True
     FOURIER_EMB = False
-    CAUSAL_WEIGHT = True
+    CAUSAL_WEIGHT = False
     IRR = True
 
     GC = 2.7

@@ -146,8 +146,8 @@ class FractureSampler(Sampler):
         }
 
     def sample(self, *args, **kwargs):
-        pde = self.sample_pde_rar(*args, **kwargs)
-        # pde = self.sample_pde()
+        # pde = self.sample_pde_rar(*args, **kwargs)
+        pde = self.sample_pde()
         ic = self.sample_ic()
         bc = self.sample_bc()
         # bc-bottom: ux, uy = 0
