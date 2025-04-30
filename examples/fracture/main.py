@@ -51,8 +51,7 @@ class FracturePINN(PINN):
 
     def ref_sol_bc_top(self, x, t):
         # uy = 0.007 * 0.78 / np.tanh(3) * np.tanh(3 * t)
-        uy = self.cfg.loading(t[0])
-        return jax.lax.stop_gradient(jnp.array([0.0, 0.0, uy]))
+        return jax.lax.stop_gradient(self.cfg.loading(t[0]))
 
     def ref_sol_bc_bottom(self, x, t):
         return jax.lax.stop_gradient(jnp.array([0.0, 0.0, 0.0]))
@@ -101,8 +100,6 @@ class FracturePINN(PINN):
     def loss_bc_top_u(self, params, batch):
         x, t = batch
         _, disp = vmap(self.net_u, in_axes=(None, 0, 0))(params, x, t)
-        # ux = disp[:, 0]
-        uy = disp[:, 1]
         ref = vmap(self.ref_sol_bc_top, in_axes=(0, 0))(x, t)
         # ux should be constant using poisson coefficient `nu`
         # epsilon = vmap(self.epsilon, in_axes=(None, 0, 0))(
@@ -110,7 +107,7 @@ class FracturePINN(PINN):
         # )
         # eps_xx = epsilon[:, 0, 0]
         # eps_yy = epsilon[:, 1, 1]
-        top = jnp.mean((uy - ref[:, 2]) ** 2)
+        top = jnp.mean((disp[:, self.cfg.LOAD_ON] - ref) ** 2)
         return top
 
     def loss_bc_crack(self, params, batch):
@@ -197,7 +194,7 @@ sampler = FractureSampler(
     },
 )
 
-stagger = StaggerSwitch(pde_names=["stress", "pf"], stagger_period=cfg.STAGGER_PERIOD)
+stagger = StaggerSwitch(pde_names=["stress", "pf", ], stagger_period=cfg.STAGGER_PERIOD)
 
 start_time = time.time()
 for epoch in range(cfg.EPOCHS):

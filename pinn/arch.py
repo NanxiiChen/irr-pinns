@@ -289,7 +289,7 @@ class ExpertMLP(nn.Module):
 class GatingNetwork(nn.Module):
     n_experts: int = 4
     hidden_dim: int = 64
-    num_layers: int = 4
+    num_layers: int = 6
     act_name: str = "tanh"
 
     def setup(self):
@@ -310,13 +310,12 @@ class GatingNetwork(nn.Module):
 
 
 class MixtureOfExperts(nn.Module):
-    n_experts: int = 6
-    expert_hidden_dim: int = 64
-    gating_hidden_dim: int = 64
-    num_layers: int = 4
+    n_experts: int = 4
+    hidden_dim: int = 64
+    num_layers: int = 6
     out_dim: int = 3
     act_name: str = "tanh"
-    fourier_emb: bool = True
+    fourier_emb: bool = False
     emb_scale: tuple = (2.0, 2.0)
     emb_dim: int = 64
 
@@ -326,38 +325,31 @@ class MixtureOfExperts(nn.Module):
         else:
             self.act_fn = getattr(nn, self.act_name)
 
+        self.experts = [ExpertMLP(
+            act_name=self.act_name,
+            num_layers=self.num_layers,
+            hidden_dim=self.hidden_dim,
+            out_dim=self.out_dim,
+        ) for _ in range(self.n_experts)]          
+
     @nn.compact
     def __call__(self, x, t):
-
-
         if self.fourier_emb:
             t_emb = FourierEmbedding(self.emb_scale[1], self.emb_dim)(t)
             x_emb = FourierEmbedding(self.emb_scale[0], self.emb_dim)(x)
             x = jnp.concatenate([x_emb, t_emb], axis=-1)
-
         else:
             x = jnp.concatenate([x, t], axis=-1)
 
-
-
         gating_weights = GatingNetwork(
             n_experts=self.n_experts,
-            hidden_dim=self.gating_hidden_dim,
+            hidden_dim=self.hidden_dim,
             num_layers=self.num_layers,
             act_name=self.act_name,
         )(x)
 
-        expert_outputs = []
-        for _ in range(self.n_experts):
-            expert_output = ExpertMLP(
-                act_name=self.act_name,
-                num_layers=self.num_layers,
-                hidden_dim=self.expert_hidden_dim,
-                out_dim=self.out_dim,
-            )(x)
-            expert_outputs.append(expert_output)
-
-        expert_outputs = jnp.stack(expert_outputs, axis=-1)
+        # 使用预先创建的专家模型
+        expert_outputs = jnp.stack([expert(x) for expert in self.experts], axis=-1)
 
         output = jnp.sum(gating_weights[None, ...] * expert_outputs, axis=-1)
         return output

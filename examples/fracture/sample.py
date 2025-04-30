@@ -84,7 +84,7 @@ class FractureSampler(Sampler):
         x = lhs_sampling(
             mins=[self.domain[0][0], self.domain[1][0]],
             maxs=[self.domain[0][1], self.domain[1][1]],
-            num=self.n_samples**2,
+            num=self.n_samples**2*5,
             key=key,
         )
 
@@ -103,7 +103,7 @@ class FractureSampler(Sampler):
         xt = lhs_sampling(
             mins=[self.domain[0][0], self.domain[2][0]],
             maxs=[self.domain[0][1], self.domain[2][1]],
-            num=self.n_samples**2,
+            num=self.n_samples**2*5,
             key=key,
         )
         top = jnp.concatenate(
@@ -117,7 +117,7 @@ class FractureSampler(Sampler):
         yt = lhs_sampling(
             mins=[self.domain[0][0], self.domain[1][0]],
             maxs=[self.domain[0][1], self.domain[1][1]],
-            num=self.n_samples**2,
+            num=self.n_samples**2*5,
             key=key,
         )
         right = jnp.concatenate(
@@ -133,7 +133,7 @@ class FractureSampler(Sampler):
         crack = lhs_sampling(
             mins=[self.domain[0][0], -0.05, self.domain[2][0]],
             maxs=[0.0, 0.05, self.domain[2][1]],
-            num=self.n_samples**2,
+            num=self.n_samples**2*5,
             key=self.key,
         )
 

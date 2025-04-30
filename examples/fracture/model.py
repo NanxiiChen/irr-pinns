@@ -38,6 +38,8 @@ class PINN(nn.Module):
         self.causal_weightor = causal_weightor
 
         self.loss_fn_stress = partial(self.loss_fn, pde_name="stress")
+        self.loss_fn_stress_x = partial(self.loss_fn, pde_name="stress_x")
+        self.loss_fn_stress_y = partial(self.loss_fn, pde_name="stress_y")
         self.loss_fn_pf = partial(self.loss_fn, pde_name="pf")
 
     @partial(jit, static_argnums=(0,))
@@ -110,6 +112,13 @@ class PINN(nn.Module):
         # )
         # stress = jnp.sum(stress**2 * weights, axis=-1)
         return stress / self.cfg.STRESS_PRE_SCALE
+    
+
+    def net_stress_x(self, params, x, t):
+        return self.net_stress(params, x, t)[0]
+    
+    def net_stress_y(self, params, x, t):
+        return self.net_stress(params, x, t)[1]/10.0
 
     @partial(jit, static_argnums=(0,))
     def net_pf(self, params, x, t):
@@ -157,6 +166,9 @@ class PINN(nn.Module):
             residual = vmap(self.net_pf, in_axes=(None, 0, 0))(params, x, t)
         else:
             raise ValueError(f"Unknown PDE name: {pde_name}")
+
+        # fn = getattr(self, f"net_{pde_name}")
+        # residual = vmap(fn, in_axes=(None, 0, 0))(params, x, t)
 
         nabla_phi_fn = jax.jacrev(
             lambda params, x, t: self.net_u(params, x, t)[0], argnums=1
