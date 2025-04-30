@@ -48,7 +48,7 @@ class Config:
     Lc = 1.0
     Tc = 1.0
     DISP_PRE_SCALE = 1e2
-    STRESS_PRE_SCALE = 1e4
+    STRESS_PRE_SCALE = 1e5
     PF_PRE_SCALE = 1e2
 
     CAUSAL_CONFIGS = {
