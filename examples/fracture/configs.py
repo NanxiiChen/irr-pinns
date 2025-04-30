@@ -3,12 +3,12 @@ from jax import numpy as jnp
 
 class Config:
     EPOCHS = 100000
-    N_SAMPLES = 15
-    ADAPTIVE_SAMPLES = 500
+    N_SAMPLES = 18
+    ADAPTIVE_SAMPLES = 1000
     ADAPTIVE_BASE_RATE = 5
     LR = 5e-4
     DECAY = 0.9
-    DECAY_EVERY = 1000
+    DECAY_EVERY = 2000
     STAGGER_PERIOD = 25
     EMB_SCALE = (2.0, 2.0)  # emb sacle for (x, t)
     EMB_DIM = 64
@@ -19,7 +19,7 @@ class Config:
     LOG_DIR = "/root/autodl-tmp/tf-logs"
     PREFIX = "fracture/irr"
     RESUME = None
-    # RESUME = "/root/autodl-tmp/tf-logs/fracture/irr/basline-model400_4-14k/model-14000/"
+    # RESUME = "/root/autodl-tmp/tf-logs/fracture/irr/baseline-best0429-model400_6-epoch30k-actswish/model-30000/"
     # TS = [0.0000, 0.3000, 0.7000, 0.7400, 0.7800]
     TS = [0.0000, 0.2500, 0.5000, 0.8000, 1.0000]
 
@@ -38,7 +38,7 @@ class Config:
 
     GC = 2.7
     L = 0.024
-    UR = 0.0065
+    UR = 0.0060
     LAMBDA = 121.1538e3
     MU = 80.7692e3
     NU = 0.3
