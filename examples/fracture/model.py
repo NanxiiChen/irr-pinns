@@ -47,9 +47,9 @@ class PINN(nn.Module):
         sol = self.model.apply(params, x, t)
         phi, disp = jnp.split(sol, [1], axis=-1)
         disp = disp / self.cfg.DISP_PRE_SCALE
-        phi = jnp.exp(-phi**2*5)
+        phi = jnp.exp(-phi**2*10)
         # phi = jnp.tanh(phi) / 2 + 0.5
-        # phi = jnp.exp(-jax.nn.sigmoid(phi*10)*10)
+        # phi = jnp.exp(-jax.nn.sigmoid(-phi*10)*10)
         return phi, disp
 
     @partial(jit, static_argnums=(0,))
@@ -106,11 +106,11 @@ class PINN(nn.Module):
         # sigma_cdot_nabla_phi[i]: sigma_ij * dphi / dx_j
         sigma_cdot_nabla_phi = jnp.einsum("ij,j->i", sigma, nabla_phi)
         stress = (1 - phi) ** 2 * div_sigma - 2 * (1 - phi) * sigma_cdot_nabla_phi
-        # point-wise weight
+        # # point-wise weight
         # weights = jax.lax.stop_gradient(
-        #     jnp.sum(stress**2, axis=-1) / (stress**2 + 1e-6)
+        #     jnp.sum(jnp.abs(stress), axis=-1) / (jnp.abs(stress) + 1e-6)
         # )
-        # stress = jnp.sum(stress**2 * weights, axis=-1)
+        # stress = jnp.sum(jnp.abs(stress) * weights, axis=-1)
         return stress / self.cfg.STRESS_PRE_SCALE
     
 
@@ -169,14 +169,21 @@ class PINN(nn.Module):
 
         fn = getattr(self, f"net_{pde_name}")
         residual = vmap(fn, in_axes=(None, 0, 0))(params, x, t)
+        if pde_name == "stress":
+            mse_res = jnp.mean(residual**2, axis=0)
+            weights = jax.lax.stop_gradient(
+                jnp.sqrt(jnp.sum(mse_res, axis=-1) / (mse_res + 1e-6))
+            )
+            residual = jnp.sum(jnp.abs(residual) * weights, axis=-1)
+        
 
+        # point-wise weight
         nabla_phi_fn = jax.jacrev(
             lambda params, x, t: self.net_u(params, x, t)[0], argnums=1
         )
         nabla_phi = vmap(
             lambda params, x, t: nabla_phi_fn(params, x, t)[0], in_axes=(None, 0, 0)
         )(params, x, t)
-        # grad_phi = jax.lax.stop_gradient(jnp.linalg.norm(nabla_phi, ord=2, axis=-1))
         grad_phi = jax.lax.stop_gradient(jnp.sum(nabla_phi**2, axis=-1))
         weights = 1 / (1 + grad_phi)
         residual = weights * residual
