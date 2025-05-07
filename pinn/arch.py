@@ -192,8 +192,8 @@ class ModifiedMLP(nn.Module):
     def __call__(self, x, t):
 
         if self.fourier_emb:
-            t_emb = WaveletEmbedding(self.emb_scale[1], self.emb_dim)(t)
-            x_emb = WaveletEmbedding(self.emb_scale[0], self.emb_dim)(x)
+            t_emb = FourierEmbedding(self.emb_scale[1], self.emb_dim)(t)
+            x_emb = FourierEmbedding(self.emb_scale[0], self.emb_dim)(x)
             # x_emb = RBFEmbedding()(x)
             x = jnp.concatenate([x_emb, t_emb], axis=-1)
         else:
@@ -301,3 +301,48 @@ class MixtureOfExperts(nn.Module):
 
         output = jnp.sum(gating_weights[None, ...] * expert_outputs, axis=-1)
         return output
+
+
+class PirateNet(nn.Module):
+    act_name: str = "tanh"
+    num_layers: int = 4
+    hidden_dim: int = 64
+    out_dim: int = 2
+    fourier_emb: bool = True
+    emb_scale: tuple = (2.0, 2.0)
+    emb_dim: int = 64
+    nonlinearity: float = 0.5
+
+    def setup(self):
+        if self.act_name == "snake":
+            self.act_fn = Snake()
+        else:
+            self.act_fn = getattr(nn, self.act_name)
+
+    @nn.compact
+    def __call__(self, x, t):
+        if self.fourier_emb:
+            t_emb = FourierEmbedding(self.emb_scale[1], self.emb_dim)(t)
+            x_emb = FourierEmbedding(self.emb_scale[0], self.emb_dim)(x)
+            x = jnp.concatenate([x_emb, t_emb], axis=-1)
+        else:
+            x = jnp.concatenate([x, t], axis=-1)
+
+        x = Dense(x.shape[-1], self.hidden_dim)(x)
+        u = Dense(x.shape[-1], self.hidden_dim)(x)
+        v = Dense(x.shape[-1], self.hidden_dim)(x)
+        u = self.act_fn(u)
+        v = self.act_fn(v)
+
+        for idx in range(self.num_layers):
+            identity = x
+
+            x = Dense(x.shape[-1], self.hidden_dim)(x)
+            x = nn.tanh(x)
+            x = x * u + (1 - x) * v
+            # x = Dense(x.shape[-1], self.hidden_dim)(x)
+            # x = nn.tanh(x)
+            alpha = self.param(f"alpha_{idx}", constant(self.nonlinearity), (1,))
+            x = alpha * x + (1 - alpha) * identity
+
+        return Dense(x.shape[-1], self.out_dim)(x)

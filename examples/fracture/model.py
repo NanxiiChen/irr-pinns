@@ -5,7 +5,7 @@ import jax.numpy as jnp
 from flax import linen as nn
 from jax import jit, random, vmap
 
-from pinn import CausalWeightor, MLP, ModifiedMLP, ResNet, MixtureOfExperts
+from pinn import CausalWeightor, MLP, ModifiedMLP, ResNet, MixtureOfExperts, PirateNet
 
 
 class PINN(nn.Module):
@@ -25,7 +25,13 @@ class PINN(nn.Module):
         #     self.loss_bc,
         #     self.loss_irr,
         # ]
-        arch = {"mlp": MLP, "modified_mlp": ModifiedMLP, "resnet": ResNet, "moe": MixtureOfExperts}
+        arch = {
+            "mlp": MLP,
+            "modified_mlp": ModifiedMLP,
+            "resnet": ResNet,
+            "moe": MixtureOfExperts,
+            "pirate": PirateNet,
+        }
         self.model = arch[self.cfg.ARCH_NAME](
             act_name=self.cfg.ACT_NAME,
             num_layers=self.cfg.NUM_LAYERS,
@@ -84,7 +90,7 @@ class PINN(nn.Module):
         # l2_eps = jnp.linalg.norm(dev_eps, ord=2) ** 2
         tr_deveps2 = jnp.linalg.trace(dev_eps @ dev_eps)
         return pos_energy + self.cfg.MU * tr_deveps2
-    
+
         # without the tension-compression decomposition
         # return self.cfg.LAMBDA * jnp.linalg.trace(epsilon) ** 2 / 2 \
         #     + self.cfg.MU * jnp.linalg.trace(epsilon @ epsilon)
@@ -112,13 +118,12 @@ class PINN(nn.Module):
         # )
         # stress = jnp.sum(jnp.abs(stress) * weights, axis=-1)
         return stress / self.cfg.STRESS_PRE_SCALE
-    
 
     def net_stress_x(self, params, x, t):
         return self.net_stress(params, x, t)[0]
-    
+
     def net_stress_y(self, params, x, t):
-        return self.net_stress(params, x, t)[1]/10.0
+        return self.net_stress(params, x, t)[1] / 10.0
 
     @partial(jit, static_argnums=(0,))
     def net_pf(self, params, x, t):
@@ -175,7 +180,6 @@ class PINN(nn.Module):
                 jnp.sqrt(jnp.sum(mse_res, axis=-1) / (mse_res + 1e-6))
             )
             residual = jnp.sum(jnp.abs(residual) * weights, axis=-1)
-        
 
         # point-wise weight
         nabla_phi_fn = jax.jacrev(
@@ -264,4 +268,7 @@ class PINN(nn.Module):
         weights = jnp.mean(grad_norms) / (grad_norms + eps)
         weights = jnp.nan_to_num(weights)
         weights = jnp.clip(weights, eps, 1 / eps)
+
+        # set weight for `ic` to 5 times larger
+        # weights = weights.at[1].set(weights[1] * 5)
         return jax.lax.stop_gradient(weights)
