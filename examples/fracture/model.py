@@ -269,6 +269,4 @@ class PINN(nn.Module):
         weights = jnp.nan_to_num(weights)
         weights = jnp.clip(weights, eps, 1 / eps)
 
-        # set weight for `ic` to 5 times larger
-        # weights = weights.at[1].set(weights[1] * 5)
         return jax.lax.stop_gradient(weights)

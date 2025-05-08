@@ -292,6 +292,7 @@ for epoch in range(cfg.EPOCHS):
                 "loss/bc_bottom_u",
                 "loss/bc_top_u",
                 "loss/bc_crack",
+                # "loss/bc_right",
                 "loss/irr",
                 f"weight/{pde_name}",
                 "weight/ic_phi",
@@ -299,6 +300,7 @@ for epoch in range(cfg.EPOCHS):
                 "weight/bc_bottom_u",
                 "weight/bc_top_u",
                 "weight/bc_crack",
+                # "weight/bc_right",
                 "weight/irr",
             ],
             values=[

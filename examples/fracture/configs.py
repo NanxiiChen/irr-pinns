@@ -4,7 +4,7 @@ from jax import numpy as jnp
 class Config:
     EPOCHS = 100000
     N_SAMPLES = 15
-    ADAPTIVE_SAMPLES = 500
+    ADAPTIVE_SAMPLES = 100
     ADAPTIVE_BASE_RATE = 10
     LR = 5e-4
     DECAY = 0.9
@@ -23,7 +23,7 @@ class Config:
     # TS = [0.0000, 0.3000, 0.7000, 0.7400, 0.7800]
     TS = [0.0000, 0.2500, 0.5000, 0.8000, 1.0000]
 
-    NUM_LAYERS = 8
+    NUM_LAYERS = 6
     HIDDEN_DIM = 400
     OUT_DIM = 3
 
@@ -38,7 +38,7 @@ class Config:
 
     GC = 2.7
     L = 0.024
-    UR = 0.0070
+    UR = 0.0055
     LOAD_ON_DIR = "y"
     LOAD_ON = 1 if LOAD_ON_DIR == "y" else 0
     LAMBDA = 121.1538e3
@@ -64,7 +64,7 @@ class Config:
     }
 
     @classmethod
-    def loading(cls, t, alpha=2.0):
+    def loading(cls, t, alpha=5.0):
         # return cls.UR * t
         return cls.UR / jnp.tanh(alpha) * jnp.tanh(alpha * t)
 
