@@ -9,7 +9,7 @@ class Config:
     LR = 5e-4
     DECAY = 0.9
     DECAY_EVERY = 500
-    STAGGER_PERIOD = 10
+    STAGGER_PERIOD = 50
     EMB_SCALE = (0.5, 1)  # emb sacle for (x, t)
     EMB_DIM = 64
 
@@ -19,7 +19,7 @@ class Config:
     LOG_DIR = "/root/autodl-tmp/tf-logs"
     PREFIX = "fracture/irr"
     RESUME = None
-    # RESUME = "/root/autodl-tmp/tf-logs/fracture/irr/2025-05-10-15-33-08/model-30000/"
+    # RESUME = "/root/autodl-tmp/tf-logs/fracture/irr/2025-05-13-21-15-03/model-6000/"
     # TS = [0.0000, 0.3000, 0.7000, 0.7400, 0.7800]
     TS = [0.0000, 0.2500, 0.5000, 0.8000, 1.0000]
 
@@ -30,12 +30,13 @@ class Config:
     ACT_NAME = "swish"
     ARCH_NAME = "modified_mlp"
     OPTIMIZER = "adam"
-    CHANGE_OPT_AT = 5000000
+    CHANGE_OPT_AT = 20000
     ASYMMETRIC = True
     FOURIER_EMB = False
     CAUSAL_WEIGHT = True
     IRR = True
     POINT_WISE_WEIGHT = True
+    RAR = False
 
     GC = 2.7
     L = 0.024

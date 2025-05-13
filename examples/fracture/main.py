@@ -254,6 +254,7 @@ for epoch in range(cfg.EPOCHS):
             fns=[getattr(pinn, f"net_{pde_name}")],
             # fns=[pinn.psi],
             params=state.params,
+            rar=pinn.cfg.RAR,
             # net_u=pinn.net_u,
         )
 
@@ -276,7 +277,7 @@ for epoch in range(cfg.EPOCHS):
     if epoch % cfg.STAGGER_PERIOD == 0:
 
         # save the model
-        if epoch % (50 * cfg.STAGGER_PERIOD) == 0:
+        if epoch % (10 * cfg.STAGGER_PERIOD) == 0:
             ckpt.save(log_path + f"/model-{epoch}", state)
 
             fig, error = evaluate2D(
@@ -311,7 +312,7 @@ for epoch in range(cfg.EPOCHS):
             ],
         )
 
-        if cfg.CAUSAL_WEIGHT and epoch % (50 * cfg.STAGGER_PERIOD) == 0:
+        if cfg.CAUSAL_WEIGHT and epoch % (10 * cfg.STAGGER_PERIOD) == 0:
             fig = pinn.causal_weightor.plot_causal_info(
                 aux_vars["causal_weights"],
                 aux_vars["loss_chunks"],
