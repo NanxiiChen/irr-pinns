@@ -148,13 +148,15 @@ class FracturePINN(PINN):
 
     def loss_bc_sigmax(self, params, batch, *args, **kwargs):
         x, t = batch
+        norm_vector = jnp.array([1.0, 0.0])
         phi = vmap(
             lambda params, x, t: self.net_u(params, x, t)[0], in_axes=(None, 0, 0)
-        )(params, x, t).squeeze(-1)
-        sigmax = vmap(
-            lambda params, x, t: self.sigma(params, x, t)[0, 0], in_axes=(None, 0, 0)
+        )(params, x, t).squeeze()
+        sigma = vmap(
+            self.sigma, in_axes=(None, 0, 0)
         )(params, x, t)
-        res = (1 - phi) ** 2 * sigmax
+        traction_vectors = jnp.einsum('ijk,k->ij', sigma, norm_vector)
+        res = traction_vectors[:, 0] * (1 - phi)**2
         return jnp.mean(res**2), {}
 
 
@@ -179,6 +181,7 @@ loss_terms = [
     # "bc_top_ux",
     "bc_top_uy",
     "bc_crack",
+    # "bc_sigmax",
     "irr",
 ]
 
@@ -222,7 +225,8 @@ sampler = FractureSampler(
 )
 
 stagger = StaggerSwitch(
-    pde_names=["stress_x", "stress_y", "pf"], stagger_period=cfg.STAGGER_PERIOD
+    pde_names=["stress_x", "stress_y", "pf", ], 
+    stagger_period=cfg.STAGGER_PERIOD
 )
 
 
@@ -250,6 +254,7 @@ for epoch in range(cfg.EPOCHS):
             fns=[getattr(pinn, f"net_{pde_name}")],
             # fns=[pinn.psi],
             params=state.params,
+            # net_u=pinn.net_u,
         )
 
     state, (weighted_loss, loss_components, weight_components, aux_vars) = train_step(
@@ -271,7 +276,7 @@ for epoch in range(cfg.EPOCHS):
     if epoch % cfg.STAGGER_PERIOD == 0:
 
         # save the model
-        if epoch % (20 * cfg.STAGGER_PERIOD) == 0:
+        if epoch % (50 * cfg.STAGGER_PERIOD) == 0:
             ckpt.save(log_path + f"/model-{epoch}", state)
 
             fig, error = evaluate2D(
@@ -306,7 +311,7 @@ for epoch in range(cfg.EPOCHS):
             ],
         )
 
-        if cfg.CAUSAL_WEIGHT and epoch % (20 * cfg.STAGGER_PERIOD) == 0:
+        if cfg.CAUSAL_WEIGHT and epoch % (50 * cfg.STAGGER_PERIOD) == 0:
             fig = pinn.causal_weightor.plot_causal_info(
                 aux_vars["causal_weights"],
                 aux_vars["loss_chunks"],

@@ -49,7 +49,7 @@ class PINN(nn.Module):
         sol = self.model.apply(params, x, t)
         phi, disp = jnp.split(sol, [1], axis=-1)
         disp = disp / self.cfg.DISP_PRE_SCALE
-        phi = jnp.exp(-phi**2*20)
+        phi = jnp.exp(-phi**2*10)
         # phi = jnp.tanh(phi) / 2 + 0.5
         # phi = jnp.exp(-jax.nn.sigmoid(-phi*10)*10)
         return phi, disp
@@ -186,8 +186,9 @@ class PINN(nn.Module):
                 lambda params, x, t: nabla_phi_fn(params, x, t)[0], in_axes=(None, 0, 0)
             )(params, x, t)
             grad_phi = jnp.sum(nabla_phi**2, axis=-1)
-            weights = jax.lax.stop_gradient(1 / (1 + grad_phi))
-            # weights = jax.lax.stop_gradient(jnp.exp(-grad_phi))
+            # grad_phi = jnp.linalg.norm(nabla_phi, ord=2, axis=-1)
+            # weights = jax.lax.stop_gradient(1 / (1 + grad_phi))
+            weights = jax.lax.stop_gradient(jnp.exp(-grad_phi))
             residual = weights * residual
         else:
             weights = jax.lax.stop_gradient(jnp.ones_like(residual))

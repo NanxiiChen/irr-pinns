@@ -4,7 +4,7 @@ from jax import numpy as jnp
 class Config:
     EPOCHS = 100000
     N_SAMPLES = 15
-    ADAPTIVE_SAMPLES = 500
+    ADAPTIVE_SAMPLES = 200
     ADAPTIVE_BASE_RATE = 10
     LR = 5e-4
     DECAY = 0.9
@@ -39,7 +39,7 @@ class Config:
 
     GC = 2.7
     L = 0.024
-    UR = 0.0055
+    UR = 0.0060
     LOAD_ON_DIR = "y"
     LOAD_ON = 1 if LOAD_ON_DIR == "y" else 0
     LAMBDA = 121.1538e3
@@ -50,22 +50,22 @@ class Config:
     Tc = 1.0
     DISP_PRE_SCALE = 1e2
     STRESS_PRE_SCALE = 1e4
-    PF_PRE_SCALE = 5e2
+    PF_PRE_SCALE = 1e2
 
     CAUSAL_CONFIGS = {
-        "stress_x_eps": 10,
-        "stress_y_eps": 10,
-        "stress_eps": 10,
+        "stress_x_eps": 1e-2,
+        "stress_y_eps": 1e-2,
+        "stress_eps": 1e-2,
         "pf_eps": 10,
         "step_size": 10,
         "max_last_weight": 0.99,
         "min_mean_weight": 0.5,
-        "max_eps": 100,
+        "max_eps": 1000,
         "chunks": 12,
     }
 
     @classmethod
-    def loading(cls, t, alpha=2.0):
+    def loading(cls, t, alpha=3.0):
         # return cls.UR * t
         return cls.UR / jnp.tanh(alpha) * jnp.tanh(alpha * t)
 

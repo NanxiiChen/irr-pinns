@@ -70,6 +70,19 @@ class FractureSampler(Sampler):
                 res = jnp.sum(jnp.abs(res) * weights[None, :], axis=-1)
             # res = res.reshape(self.adaptive_kw["num"] * self.adaptive_kw["ratio"], -1)
             # res = jnp.linalg.norm(res, ord=1, axis=-1)
+
+            # # point-wise weight
+            # nabla_phi_fn = jax.jacrev(
+            #     lambda params, x, t: net_u(params, x, t)[0], argnums=1
+            # )
+            # nabla_phi = vmap(
+            #     lambda params, x, t: nabla_phi_fn(params, x, t)[0],
+            #     in_axes=(None, 0, 0),
+            # )(params, x, t)
+            # grad_phi = jnp.sum(nabla_phi**2, axis=-1)
+            # weights = jax.lax.stop_gradient(jnp.exp(-grad_phi))
+            # res = weights * res
+
             _, indices = jax.lax.top_k(jnp.abs(res), self.adaptive_kw["num"])
             selected_points = adaptive_base[indices]
             rar_points = rar_points.at[
@@ -162,7 +175,6 @@ class FractureSampler(Sampler):
             bc["bottom"], bc["bottom"], # bottom for ux, uy
             bc["top"],
             bc["crack"],
-            # bc["right"],
             # bc["vertical"],
             pde,
         ]
