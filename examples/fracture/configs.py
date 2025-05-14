@@ -3,7 +3,7 @@ from jax import numpy as jnp
 
 class Config:
     EPOCHS = 100000
-    N_SAMPLES = 15
+    N_SAMPLES = 20
     ADAPTIVE_SAMPLES = 200
     ADAPTIVE_BASE_RATE = 10
     LR = 5e-4
@@ -35,12 +35,12 @@ class Config:
     FOURIER_EMB = False
     CAUSAL_WEIGHT = True
     IRR = True
-    POINT_WISE_WEIGHT = True
-    RAR = False
+    POINT_WISE_WEIGHT = True   # 有两种形式，1/(alpha + grad(phi)) 或者 exp(-grad(phi)*alpha)
+    RAR = False   # RAR 和PWW实际上是相反作用，RAR强调界面，PWW弱化界面
 
     GC = 2.7
     L = 0.024
-    UR = 0.0060
+    UR = 0.0055
     LOAD_ON_DIR = "y"
     LOAD_ON = 1 if LOAD_ON_DIR == "y" else 0
     LAMBDA = 121.1538e3
@@ -51,7 +51,7 @@ class Config:
     Tc = 1.0
     DISP_PRE_SCALE = 1e2
     STRESS_PRE_SCALE = 1e4
-    PF_PRE_SCALE = 1e2
+    PF_PRE_SCALE = 1e2   # 如果是1e3的话，裂纹会开展飞快很快，但是应力应变曲线是错的，我怀疑这样就是pf没有起到控制作用
 
     CAUSAL_CONFIGS = {
         "stress_x_eps": 1e-2,

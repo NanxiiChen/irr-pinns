@@ -187,8 +187,8 @@ class PINN(nn.Module):
             )(params, x, t)
             grad_phi = jnp.sum(nabla_phi**2, axis=-1)
             # grad_phi = jnp.linalg.norm(nabla_phi, ord=2, axis=-1)
-            # weights = jax.lax.stop_gradient(1 / (1 + grad_phi))
-            weights = jax.lax.stop_gradient(jnp.exp(-grad_phi))
+            weights = jax.lax.stop_gradient(1 / (0.5 + grad_phi))
+            # weights = jax.lax.stop_gradient(jnp.exp(-grad_phi))
             residual = weights * residual
         else:
             weights = jax.lax.stop_gradient(jnp.ones_like(residual))
