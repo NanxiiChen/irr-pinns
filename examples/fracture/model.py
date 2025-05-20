@@ -197,7 +197,12 @@ class PINN(nn.Module):
         if not self.cfg.CAUSAL_WEIGHT:
             return jnp.mean(residual**2), {"weights": weights}
         else:
-            loss, aux_vars = self.causal_weightor.compute_causal_loss(residual, t, eps)
+            # loss, aux_vars = self.causal_weightor.compute_causal_loss(residual, t, eps)
+            phi, _ = vmap(self.net_u, in_axes=(None, 0, 0))(params, x, t)
+            phi = jax.lax.stop_gradient(phi)
+            # phi = -jnp.log(phi + 1e-10)
+            # phi = 1 - (phi - jnp.min(phi)) / (jnp.max(phi) - jnp.min(phi))
+            loss, aux_vars = self.causal_weightor.compute_causal_loss(residual, phi, eps)
             aux_vars.update({"weights": weights})
             return loss, aux_vars
 
@@ -258,7 +263,7 @@ class PINN(nn.Module):
         if not self.cfg.IRR:
             weights = weights.at[-1].set(0.0)
 
-        # weights = weights.at[1].set(weights[1] * 10)
+        # weights = weights.at[1].set(weights[1] * 5)
 
         return jnp.sum(weights * losses), (losses, weights, aux_vars)
 
@@ -271,7 +276,8 @@ class PINN(nn.Module):
         grad_norms = jnp.array([tree_norm(grad) for grad in grads])
 
         grad_norms = jnp.clip(grad_norms, eps, 1 / eps)
-        weights = jnp.mean(grad_norms) / (grad_norms + eps)
+        # weights = jnp.mean(grad_norms) / (grad_norms + eps)
+        weights = 1.0 / (grad_norms + eps)
         weights = jnp.nan_to_num(weights)
         weights = jnp.clip(weights, eps, 1 / eps)
 

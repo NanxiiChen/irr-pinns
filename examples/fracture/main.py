@@ -64,20 +64,21 @@ class FracturePINN(PINN):
         phi, _ = vmap(self.net_u, in_axes=(None, 0, 0))(params, x, t)
         phi = phi[:, 0]
         ref = vmap(self.ref_sol_ic_phi, in_axes=(0, 0))(x, t)
-        return jnp.mean((phi - ref) ** 2), {}
+        icphi = jnp.mean((phi - ref) ** 2)
+        return icphi, {}
 
     def loss_ic_ux(self, params, batch, *args, **kwargs):
         x, t = batch
         _, disp = vmap(self.net_u, in_axes=(None, 0, 0))(params, x, t)
         ux = disp[:, 0]
-        icux = jnp.mean(ux**2)
+        icux = jnp.mean(ux**2) * self.cfg.DISP_PRE_SCALE**2
         return icux, {}
 
     def loss_ic_uy(self, params, batch, *args, **kwargs):
         x, t = batch
         _, disp = vmap(self.net_u, in_axes=(None, 0, 0))(params, x, t)
         uy = disp[:, 1]
-        icuy = jnp.mean(uy**2)
+        icuy = jnp.mean(uy**2) * self.cfg.DISP_PRE_SCALE**2
         return icuy, {}
 
     def loss_bc_bottom_phi(self, params, batch, *args, **kwargs):
@@ -92,14 +93,14 @@ class FracturePINN(PINN):
         x, t = batch
         _, disp = vmap(self.net_u, in_axes=(None, 0, 0))(params, x, t)
         ux = disp[:, 0]
-        bottom = jnp.mean(ux**2)
+        bottom = jnp.mean(ux**2) * self.cfg.DISP_PRE_SCALE**2
         return bottom, {}
 
     def loss_bc_bottom_uy(self, params, batch, *args, **kwargs):
         x, t = batch
         _, disp = vmap(self.net_u, in_axes=(None, 0, 0))(params, x, t)
         uy = disp[:, 1]
-        bottom = jnp.mean(uy**2)
+        bottom = jnp.mean(uy**2) * self.cfg.DISP_PRE_SCALE**2
         return bottom, {}
 
     def loss_bc_top_phi(self, params, batch, *args, **kwargs):
@@ -114,13 +115,13 @@ class FracturePINN(PINN):
         x, t = batch
         _, disp = vmap(self.net_u, in_axes=(None, 0, 0))(params, x, t)
         ref = vmap(self.ref_sol_bc_top, in_axes=(0, 0))(x, t)
-        top = jnp.mean((disp[:, self.cfg.LOAD_ON] - ref) ** 2)
+        top = jnp.mean((disp[:, self.cfg.LOAD_ON] - ref) ** 2)  * self.cfg.DISP_PRE_SCALE**2
         return top, {}
 
     def loss_bc_top_ux(self, params, batch, *args, **kwargs):
         x, t = batch
         _, disp = vmap(self.net_u, in_axes=(None, 0, 0))(params, x, t)
-        top = jnp.mean(disp[:, 1 - self.cfg.LOAD_ON] ** 2)
+        top = jnp.mean(disp[:, 1 - self.cfg.LOAD_ON] ** 2)  * self.cfg.DISP_PRE_SCALE**2
         return top, {}
 
     def loss_bc_crack(self, params, batch, *args, **kwargs):
@@ -160,15 +161,20 @@ class FracturePINN(PINN):
         return jnp.mean(res**2), {}
 
 
-causal_first_point = 0.3
-causal_bins_tail = jnp.linspace(
-    causal_first_point, cfg.DOMAIN[-1][-1], cfg.CAUSAL_CONFIGS["chunks"]
-)
-# insert 0.0 at the beginning of the bins
-causal_bins = jnp.insert(causal_bins_tail, 0, 0.0)
+# causal_first_point = 0.3
+# causal_bins_tail = jnp.linspace(
+#     causal_first_point, cfg.DOMAIN[-1][-1], cfg.CAUSAL_CONFIGS["chunks"]
+# )
+# # insert 0.0 at the beginning of the bins
+# causal_bins = jnp.insert(causal_bins_tail, 0, 0.0)
+
+
+
+# bins = jnp.array([0.0, 0.2, 0.4, 0.6, 0.8, 0.9, 0.94, 0.98, 1.0])
 causal_weightor = CausalWeightor(
     cfg.CAUSAL_CONFIGS["chunks"],
     t_range=cfg.DOMAIN[-1],
+    # bins=bins,
 )
 
 loss_terms = [

@@ -97,14 +97,14 @@ class FractureSampler(Sampler):
         x = lhs_sampling(
             mins=[self.domain[0][0], self.domain[1][0]],
             maxs=[self.domain[0][1], self.domain[1][1]],
-            num=self.n_samples**2*5,
+            num=self.n_samples**2 * 10,
             key=key,
         )
 
         x_local = lhs_sampling(
             mins=[self.domain[0][0], -0.1],
             maxs=[self.domain[0][1], 0.1],
-            num=self.n_samples**2 * 5,
+            num=self.n_samples**2 * 10,
             key=self.key,
         )
         x = jnp.concatenate([x, x_local], axis=0)

@@ -4,7 +4,7 @@ from jax import numpy as jnp
 class Config:
     EPOCHS = 100000
     N_SAMPLES = 20
-    ADAPTIVE_SAMPLES = 200
+    ADAPTIVE_SAMPLES = 100
     ADAPTIVE_BASE_RATE = 10
     LR = 5e-4
     DECAY = 0.9
@@ -35,12 +35,12 @@ class Config:
     FOURIER_EMB = False
     CAUSAL_WEIGHT = True
     IRR = True
-    POINT_WISE_WEIGHT = True   # 有两种形式，1/(alpha + grad(phi)) 或者 exp(-grad(phi)*alpha)
+    POINT_WISE_WEIGHT = False   # 有两种形式，1/(alpha + grad(phi)) 或者 exp(-grad(phi)*alpha)
     RAR = False   # RAR 和PWW实际上是相反作用，RAR强调界面，PWW弱化界面
 
     GC = 2.7
     L = 0.024
-    UR = 0.0055
+    UR = 0.0054
     LOAD_ON_DIR = "y"
     LOAD_ON = 1 if LOAD_ON_DIR == "y" else 0
     LAMBDA = 121.1538e3
@@ -61,12 +61,12 @@ class Config:
         "step_size": 10,
         "max_last_weight": 0.99,
         "min_mean_weight": 0.5,
-        "max_eps": 1000,
+        "max_eps": 10000,
         "chunks": 12,
     }
 
     @classmethod
-    def loading(cls, t, alpha=3.0):
+    def loading(cls, t, alpha=2.0):
         # return cls.UR * t
         return cls.UR / jnp.tanh(alpha) * jnp.tanh(alpha * t)
 
