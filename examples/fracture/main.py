@@ -84,9 +84,8 @@ class FracturePINN(PINN):
     def loss_bc_bottom_phi(self, params, batch, *args, **kwargs):
         x, t = batch
         phi, _ = vmap(self.net_u, in_axes=(None, 0, 0))(params, x, t)
-        ref = vmap(self.ref_sol_bc_bottom, in_axes=(0, 0))(x, t)
         phi = phi[:, 0]
-        bottom = jnp.mean((phi - ref[:, 0]) ** 2)
+        bottom = jnp.mean((phi) ** 2)
         return bottom, {}
 
     def loss_bc_bottom_ux(self, params, batch, *args, **kwargs):
@@ -106,9 +105,8 @@ class FracturePINN(PINN):
     def loss_bc_top_phi(self, params, batch, *args, **kwargs):
         x, t = batch
         phi, _ = vmap(self.net_u, in_axes=(None, 0, 0))(params, x, t)
-        ref = vmap(self.ref_sol_bc_top, in_axes=(0, 0))(x, t)
         phi = phi[:, 0]
-        top = jnp.mean((phi - ref[:, 2]) ** 2)
+        top = jnp.mean((phi) ** 2)
         return top, {}
 
     def loss_bc_top_uy(self, params, batch, *args, **kwargs):
@@ -182,8 +180,10 @@ loss_terms = [
     "ic_phi",
     "ic_ux",
     "ic_uy",
+    "bc_bottom_phi",
     "bc_bottom_ux",
     "bc_bottom_uy",
+    "bc_top_phi",
     # "bc_top_ux",
     "bc_top_uy",
     "bc_crack",
@@ -231,7 +231,7 @@ sampler = FractureSampler(
 )
 
 stagger = StaggerSwitch(
-    pde_names=["stress_x", "stress_y", "pf", ], 
+    pde_names=["stress_y", "stress_x", "pf", ], 
     stagger_period=cfg.STAGGER_PERIOD
 )
 
@@ -257,8 +257,8 @@ for epoch in range(cfg.EPOCHS):
 
     if epoch % cfg.STAGGER_PERIOD == 0:
         batch = sampler.sample(
-            fns=[getattr(pinn, f"net_{pde_name}")],
-            # fns=[pinn.psi],
+            # fns=[getattr(pinn, f"net_{pde_name}")],
+            fns=[pinn.net_pf],
             params=state.params,
             rar=pinn.cfg.RAR,
             # net_u=pinn.net_u,

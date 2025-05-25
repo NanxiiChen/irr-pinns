@@ -4,13 +4,13 @@ from jax import numpy as jnp
 class Config:
     EPOCHS = 100000
     N_SAMPLES = 20
-    ADAPTIVE_SAMPLES = 100
+    ADAPTIVE_SAMPLES = 200
     ADAPTIVE_BASE_RATE = 10
     LR = 5e-4
     DECAY = 0.9
     DECAY_EVERY = 500
     STAGGER_PERIOD = 50
-    EMB_SCALE = (0.5, 1)  # emb sacle for (x, t)
+    EMB_SCALE = (0.5, 0.5)  # emb sacle for (x, t)
     EMB_DIM = 64
 
     DOMAIN = [[-0.5, 0.5], [-0.5, 0.5], [0, 1.0]]
@@ -32,7 +32,7 @@ class Config:
     OPTIMIZER = "adam"
     CHANGE_OPT_AT = 20000
     ASYMMETRIC = True
-    FOURIER_EMB = False
+    FOURIER_EMB = True
     CAUSAL_WEIGHT = True
     IRR = True
     POINT_WISE_WEIGHT = False   # 有两种形式，1/(alpha + grad(phi)) 或者 exp(-grad(phi)*alpha)
@@ -49,7 +49,7 @@ class Config:
 
     Lc = 1.0
     Tc = 1.0
-    DISP_PRE_SCALE = 1e2
+    DISP_PRE_SCALE = 1e3
     STRESS_PRE_SCALE = 1e4
     PF_PRE_SCALE = 1e2   # 如果是1e3的话，裂纹会开展飞快很快，但是应力应变曲线是错的，我怀疑这样就是pf没有起到控制作用
 
@@ -58,9 +58,9 @@ class Config:
         "stress_y_eps": 1e-2,
         "stress_eps": 1e-2,
         "pf_eps": 10,
-        "step_size": 10,
-        "max_last_weight": 0.99,
-        "min_mean_weight": 0.5,
+        "step_size": 5,
+        "max_last_weight": 0.8,
+        "min_mean_weight": 0.2,
         "max_eps": 10000,
         "chunks": 12,
     }

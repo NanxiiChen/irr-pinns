@@ -32,6 +32,12 @@ class FractureSampler(Sampler):
             [self.n_samples, self.n_samples, self.n_samples],
             key,
         )
+        # data = lhs_sampling(
+        #     self.mins,
+        #     self.maxs,
+        #     self.n_samples**3,
+        #     key=key,
+        # )
 
         # data_crack = shifted_grid(
         #     [self.mins[0], self.mins[1], 0.70],
@@ -174,8 +180,8 @@ class FractureSampler(Sampler):
         return [
             pde,
             ic, ic, ic, # ic for phi, ux, uy
-            bc["bottom"], bc["bottom"], # bottom for ux, uy
-            bc["top"],
+            bc["bottom"], bc["bottom"], bc["bottom"], # bottom for phi, ux, uy
+            bc["top"], bc["top"],
             bc["crack"],
             # bc["vertical"],
             pde,

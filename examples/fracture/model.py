@@ -48,7 +48,8 @@ class PINN(nn.Module):
     def net_u(self, params, x, t):
         sol = self.model.apply(params, x, t)
         phi, disp = jnp.split(sol, [1], axis=-1)
-        disp = disp / self.cfg.DISP_PRE_SCALE
+        scale_factor = jnp.array([1.0, 1.0]) * self.cfg.DISP_PRE_SCALE
+        disp = disp / scale_factor
         phi = jnp.exp(-phi**2*10)
         # phi = jnp.exp(-jnp.abs(phi)*10)
         # phi = jnp.tanh(phi) / 2 + 0.5
@@ -81,7 +82,8 @@ class PINN(nn.Module):
         pos_energy = (
             (1 / 2)
             * (self.cfg.LAMBDA + self.cfg.MU * 2 / self.cfg.DIM)
-            * ((tr_eps + jnp.abs(tr_eps)) / 2) ** 2
+            * jax.nn.relu(tr_eps) ** 2
+            # * ((tr_eps + jnp.abs(tr_eps)) / 2) ** 2
         )
         dev_eps = epsilon - tr_eps * jnp.eye(self.cfg.DIM) / self.cfg.DIM
         # l2_eps = jnp.linalg.norm(dev_eps, ord=2) ** 2
@@ -120,7 +122,7 @@ class PINN(nn.Module):
         return self.net_stress(params, x, t)[0]
 
     def net_stress_y(self, params, x, t):
-        return self.net_stress(params, x, t)[1] / 10.0
+        return self.net_stress(params, x, t)[1]
 
     @partial(jit, static_argnums=(0,))
     def net_pf(self, params, x, t):
@@ -134,8 +136,6 @@ class PINN(nn.Module):
         pf = self.cfg.GC * (phi / self.cfg.L - self.cfg.L * lap_phi) - 2 * (
             1 - phi
         ) * self.psi(params, x, t)
-
-        # dphi_dt = self.net_speed(params, x, t).squeeze(-1)
 
         return pf / self.cfg.PF_PRE_SCALE
 
@@ -202,7 +202,7 @@ class PINN(nn.Module):
             phi = jax.lax.stop_gradient(phi)
             # phi = -jnp.log(phi + 1e-10)
             # phi = 1 - (phi - jnp.min(phi)) / (jnp.max(phi) - jnp.min(phi))
-            loss, aux_vars = self.causal_weightor.compute_causal_loss(residual, phi, eps)
+            loss, aux_vars = self.causal_weightor.compute_causal_loss(residual, t, phi, eps)
             aux_vars.update({"weights": weights})
             return loss, aux_vars
 

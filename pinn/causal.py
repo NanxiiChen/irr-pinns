@@ -33,6 +33,7 @@ class CausalWeightor:
     def compute_causal_loss(
         self,
         residuals: jnp.array,
+        t: jnp.array,
         phi: jnp.array,
         eps: jnp.array,
     ):
@@ -59,18 +60,17 @@ class CausalWeightor:
 
             return residual_weights, causal_weights, loss_chunks
 
-        # residual_weights_t, causal_weights_t, loss_chunks_t = compute_causal_weight_single(
-        #     residuals, t, eps
-        # )
+        residual_weights_t, causal_weights_t, loss_chunks_t = compute_causal_weight_single(
+            residuals, t, eps
+        )
         residual_weights_phi, causal_weights_phi, loss_chunks_phi = compute_causal_weight_single(
             residuals, phi, eps
         )
-        residual_weights = residual_weights_phi
         # causal_loss = jnp.dot(loss_chunks, causal_weights)
-        causal_loss = jnp.dot(residuals**2, residual_weights)
+        causal_loss = jnp.dot(residuals**2, residual_weights_phi * residual_weights_t)
         return causal_loss, {
-            "causal_weights": causal_weights_phi,
-            "loss_chunks": loss_chunks_phi,
+            "causal_weights": causal_weights_phi * causal_weights_t,
+            "loss_chunks": (loss_chunks_phi + loss_chunks_t) / 2,
         }
 
     def plot_causal_info(self, causal_weights, loss_chunks, eps):
