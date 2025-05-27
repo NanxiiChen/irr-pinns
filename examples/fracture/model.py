@@ -50,9 +50,9 @@ class PINN(nn.Module):
         phi, disp = jnp.split(sol, [1], axis=-1)
         scale_factor = jnp.array([1.0, 1.0]) * self.cfg.DISP_PRE_SCALE
         disp = disp / scale_factor
-        phi = jnp.exp(-phi**2*10)
+        # phi = jnp.exp(-phi**2*10)
         # phi = jnp.exp(-jnp.abs(phi)*10)
-        # phi = jnp.tanh(phi) / 2 + 0.5
+        phi = jnp.tanh(phi) / 2 + 0.5
         # phi = jnp.exp(-jax.nn.sigmoid(-phi*10)*10)
         return phi, disp
 
