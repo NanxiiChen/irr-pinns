@@ -4,14 +4,14 @@ from jax import numpy as jnp
 class Config:
     EPOCHS = 100000
     N_SAMPLES = 15
-    ADAPTIVE_SAMPLES = 200
+    ADAPTIVE_SAMPLES = 1000
     ADAPTIVE_BASE_RATE = 10
     LR = 5e-4
     DECAY = 0.9
     DECAY_EVERY = 500
     STAGGER_PERIOD = 50
     EMB_SCALE = (1.0, 1.0)  # emb sacle for (x, t)
-    EMB_DIM = 64
+    EMB_DIM = 256
 
     DOMAIN = [[-0.5, 0.5], [-0.5, 0.5], [0, 1.0]]
     DIM = 2
@@ -51,7 +51,7 @@ class Config:
     Tc = 1.0
     DISP_PRE_SCALE = 1e3
     STRESS_PRE_SCALE = 1e4
-    PF_PRE_SCALE = 1e3   # 如果是1e3的话，裂纹会开展飞快很快，但是应力应变曲线是错的，我怀疑这样就是pf没有起到控制作用
+    PF_PRE_SCALE = 1e2
 
     CAUSAL_CONFIGS = {
         "stress_x_eps": 1e-2,
@@ -62,7 +62,7 @@ class Config:
         "max_last_weight": 0.9,
         "min_mean_weight": 0.3,
         "max_eps": 100,
-        "chunks": 12,
+        "chunks": 10,
     }
 
     @classmethod

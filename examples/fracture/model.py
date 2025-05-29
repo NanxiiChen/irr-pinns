@@ -5,7 +5,14 @@ import jax.numpy as jnp
 from flax import linen as nn
 from jax import jit, random, vmap
 
-from pinn import CausalWeightor, MLP, ModifiedMLP, ResNet, MixtureOfExperts, PirateNet
+from .arch import (
+    MLP,
+    ModifiedMLP,
+    ResNet,
+    MixtureOfExperts,
+    PirateNet,
+)
+from pinn import CausalWeightor
 
 
 class PINN(nn.Module):
@@ -45,14 +52,30 @@ class PINN(nn.Module):
         self.loss_fn_pf = partial(self.loss_fn, pde_name="pf")
 
     @partial(jit, static_argnums=(0,))
+    def scale_phi(self, phi, beta=1e-3):
+        # if abs(phi)<=2 return phi/4+1/2
+        # elif phi<-2 return beta*(phi+2)
+        # elif phi >2 return beta*(phi-2)+1
+        return jnp.where(
+            jnp.abs(phi) <= 2,
+            phi / 4 + 1 / 2,
+            jnp.where(
+                phi < -2,
+                beta * (phi + 2),
+                beta * (phi - 2) + 1,
+            ),
+        )
+
+    @partial(jit, static_argnums=(0,))
     def net_u(self, params, x, t):
         sol = self.model.apply(params, x, t)
         phi, disp = jnp.split(sol, [1], axis=-1)
         scale_factor = jnp.array([1.0, 1.0]) * self.cfg.DISP_PRE_SCALE
         disp = disp / scale_factor
-        # phi = jnp.exp(-phi**2*10)
-        # phi = jnp.exp(-jnp.abs(phi)*10)
         phi = jnp.tanh(phi) / 2 + 0.5
+        # phi = self.scale_phi(phi)
+        # phi = jnp.exp(-phi**2)
+        # phi = jnp.exp(-jnp.abs(phi)*10)
         # phi = jnp.exp(-jax.nn.sigmoid(-phi*10)*10)
         return phi, disp
 
@@ -75,20 +98,20 @@ class PINN(nn.Module):
         )
 
     @partial(jit, static_argnums=(0,))
-    def psi(self, params, x, t):
-        # psi: scalar
+    def psi_pos(self, params, x, t):
         epsilon = self.epsilon(params, x, t)
         tr_eps = jnp.trace(epsilon)
-        pos_energy = (
-            (1 / 2)
-            * (self.cfg.LAMBDA + self.cfg.MU * 2 / self.cfg.DIM)
-            * jax.nn.relu(tr_eps) ** 2
-            # * ((tr_eps + jnp.abs(tr_eps)) / 2) ** 2
-        )
+        k = self.cfg.LAMBDA + self.cfg.MU * 2 / self.cfg.DIM
         dev_eps = epsilon - tr_eps * jnp.eye(self.cfg.DIM) / self.cfg.DIM
-        # l2_eps = jnp.linalg.norm(dev_eps, ord=2) ** 2
         tr_deveps2 = jnp.linalg.trace(dev_eps @ dev_eps)
-        return pos_energy + self.cfg.MU * tr_deveps2
+        return k * jax.nn.relu(tr_eps) ** 2 / 2 + self.cfg.MU * tr_deveps2
+
+    @partial(jit, static_argnums=(0,))
+    def psi_neg(self, params, x, t):
+        epsilon = self.epsilon(params, x, t)
+        tr_eps = jnp.trace(epsilon)
+        k = self.cfg.LAMBDA + self.cfg.MU * 2 / self.cfg.DIM
+        return k * jax.nn.relu(-tr_eps) ** 2 / 2
 
         # without the tension-compression decomposition
         # return self.cfg.LAMBDA * jnp.linalg.trace(epsilon) ** 2 / 2 \
@@ -111,11 +134,6 @@ class PINN(nn.Module):
         # sigma_cdot_nabla_phi[i]: sigma_ij * dphi / dx_j
         sigma_cdot_nabla_phi = jnp.einsum("ij,j->i", sigma, nabla_phi)
         stress = (1 - phi) ** 2 * div_sigma - 2 * (1 - phi) * sigma_cdot_nabla_phi
-        # # point-wise weight
-        # weights = jax.lax.stop_gradient(
-        #     jnp.sum(jnp.abs(stress), axis=-1) / (jnp.abs(stress) + 1e-6)
-        # )
-        # stress = jnp.sum(jnp.abs(stress) * weights, axis=-1)
         return stress / self.cfg.STRESS_PRE_SCALE
 
     def net_stress_x(self, params, x, t):
@@ -135,9 +153,31 @@ class PINN(nn.Module):
 
         pf = self.cfg.GC * (phi / self.cfg.L - self.cfg.L * lap_phi) - 2 * (
             1 - phi
-        ) * self.psi(params, x, t)
+        ) * self.psi_pos(params, x, t)
 
         return pf / self.cfg.PF_PRE_SCALE
+
+    # @partial(jit, static_argnums=(0,))
+    # def net_pf(self, params, x, t):
+    #     # use energy type formulation
+    #     # $$(1-\phi)^2 \psi(\varepsilon) + G_c ( \frac{1}{2l}\phi^2 + \frac{l}{2} |\nabla\phi|^2 )$$
+    #     phi, disp = self.net_u(params, x, t)
+    #     phi = phi.squeeze(-1)
+
+    #     nabla_phi = jax.jacrev(lambda x, t: self.net_u(params, x, t)[0], argnums=0)(
+    #         x, t
+    #     )[0]
+    #     pf = (
+    #         (1 - phi) ** 2 * self.psi_pos(params, x, t)
+    #         + self.psi_neg(params, x, t)
+    #         + self.cfg.GC
+    #         * (
+    #             phi**2 / (2 * self.cfg.L)
+    #             + (self.cfg.L / 2) * jnp.sum(nabla_phi**2, axis=-1)
+    #         )
+    #     )
+
+    #     return pf / self.cfg.PF_PRE_SCALE
 
     def net_speed(self, params, x, t):
         # jac_dt = jax.jacrev(self.net_u, argnums=2)
@@ -202,7 +242,9 @@ class PINN(nn.Module):
             phi = jax.lax.stop_gradient(phi)
             # phi = -jnp.log(phi + 1e-10)
             # phi = 1 - (phi - jnp.min(phi)) / (jnp.max(phi) - jnp.min(phi))
-            loss, aux_vars = self.causal_weightor.compute_causal_loss(residual, t, phi, eps)
+            loss, aux_vars = self.causal_weightor.compute_causal_loss(
+                residual, t, phi, eps
+            )
             aux_vars.update({"weights": weights})
             return loss, aux_vars
 

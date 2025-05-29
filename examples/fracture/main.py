@@ -157,6 +157,7 @@ class FracturePINN(PINN):
         traction_vectors = jnp.einsum('ijk,k->ij', sigma, norm_vector)
         res = traction_vectors[:, 0] * (1 - phi)**2
         return jnp.mean(res**2), {}
+    
 
 
 # causal_first_point = 0.3
@@ -257,10 +258,10 @@ for epoch in range(cfg.EPOCHS):
 
     if epoch % cfg.STAGGER_PERIOD == 0:
         batch = sampler.sample(
-            # fns=[getattr(pinn, f"net_{pde_name}")],
-            fns=[pinn.psi],
+            fns=[getattr(pinn, f"net_{pde_name}")],
+            # fns=[pinn.psi],
             params=state.params,
-            rar=pinn.cfg.RAR if pde_name == "pf" else False,
+            rar=pinn.cfg.RAR,
             # net_u=pinn.net_u,
         )
 

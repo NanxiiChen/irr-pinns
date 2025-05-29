@@ -3,7 +3,24 @@ from typing import Callable
 import jax
 import jax.numpy as jnp
 from flax import linen as nn
-from jax.nn.initializers import glorot_normal, normal, constant, zeros
+from jax.nn.initializers import glorot_normal, normal, constant, zeros, uniform
+
+
+from pinn.embeddings import FourierEmbedding, WaveletEmbedding
+from pinn.activation import Snake, ModifiedReLU
+
+
+
+
+
+def get_activation(name: str) -> Callable:
+    """Get activation function by name."""
+    if name == "snake":
+        return Snake()
+    elif name == "modified_relu":
+        return ModifiedReLU()
+    else:
+        return getattr(nn, name, nn.tanh)  # Default to tanh if not found
 
 
 class Dense(nn.Module):
@@ -23,39 +40,6 @@ class Dense(nn.Module):
         return jnp.dot(x, self.kernel) + self.bias
 
 
-class FourierEmbedding(nn.Module):
-    emb_scale: float = 2.0
-    emb_dim: int = 64
-
-    @nn.compact
-    def __call__(self, x):
-        kernel = self.param(
-            "kernel", normal(self.emb_scale), (x.shape[-1], self.emb_dim)
-        )
-        return jnp.concatenate(
-            [
-                jnp.sin(jnp.pi * jnp.dot(x, kernel)),
-                jnp.cos(jnp.pi * jnp.dot(x, kernel)),
-            ],
-            axis=-1,
-        )
-
-
-class ExponentialEmbedding(nn.Module):
-    emb_scale: float = 2.0
-    emb_dim: int = 32
-
-    @nn.compact
-    def __call__(self, x):
-        low, high = 1 / self.emb_scale, self.emb_scale
-
-        def kernel_init(key, shape, dtype=jnp.float32):
-            return jax.random.uniform(key, shape, dtype=dtype, minval=low, maxval=high)
-
-        kernel = self.param("kernel", kernel_init, (x.shape[-1], self.emb_dim))
-        x = jnp.dot(x, jnp.ones((x.shape[-1], self.emb_dim)))
-        x = x**kernel
-        return x.reshape(-1)
 
 
 class MLP(nn.Module):
@@ -68,7 +52,7 @@ class MLP(nn.Module):
     emb_dim: int = 64
 
     def setup(self):
-        self.act_fn = getattr(nn, self.act_name)
+        self.act_fn = get_activation(self.act_name)
 
     @nn.compact
     def __call__(self, x, t):
@@ -85,12 +69,48 @@ class MLP(nn.Module):
         else:
             x = jnp.concatenate([x, t], axis=-1)
 
-        for _ in range(self.num_layers - 1):
+        for _ in range(self.num_layers):
             x = Dense(x.shape[-1], self.hidden_dim)(x)
             x = self.act_fn(x)
         return Dense(x.shape[-1], self.out_dim)(x)
 
 
+class ResNet(nn.Module):
+    act_name: str = "tanh"
+    num_layers: int = 4
+    hidden_dim: int = 64
+    out_dim: int = 2
+    fourier_emb: bool = True
+    emb_scale: tuple = (2.0, 2.0)
+    emb_dim: int = 64
+
+    def setup(self):
+        self.act_fn = get_activation(self.act_name)
+
+    @nn.compact
+    def __call__(self, x, t):
+
+        if self.fourier_emb:
+            # separate the spatial and temporal coordinates
+            t_emb = FourierEmbedding(emb_scale=self.emb_scale[1], emb_dim=self.emb_dim)(
+                t
+            )
+            x_emb = FourierEmbedding(emb_scale=self.emb_scale[0], emb_dim=self.emb_dim)(
+                x
+            )
+            x = jnp.concatenate([x_emb, t_emb], axis=-1)
+        else:
+            x = jnp.concatenate([x, t], axis=-1)
+
+        x = Dense(x.shape[-1], self.hidden_dim)(x)
+        for _ in range(self.num_layers):
+            x_res = x
+            x = Dense(x.shape[-1], self.hidden_dim)(x)
+            x = self.act_fn(x)
+            x = x + x_res
+        return Dense(self.hidden_dim, self.out_dim)(x)
+
+
 class ModifiedMLPBlock(nn.Module):
     hidden_dim: int
     num_layers: int
@@ -109,26 +129,45 @@ class ModifiedMLPBlock(nn.Module):
             x = x * u + (1 - x) * v
 
         return x
-    
 
-class ModifiedMLPBlock(nn.Module):
-    hidden_dim: int
-    num_layers: int
-    act_fn: callable
+# class ModifiedMLP(nn.Module):
+#     act_name: str = "tanh"
+#     num_layers: int = 4
+#     hidden_dim: int = 64
+#     out_dim: int = 2
+#     fourier_emb: bool = True
+#     emb_scale: tuple = (2.0, 2.0)
+#     emb_dim: int = 64
 
-    @nn.compact
-    def __call__(self, x):
-        u = Dense(x.shape[-1], self.hidden_dim)(x)
-        v = Dense(x.shape[-1], self.hidden_dim)(x)
-        u = self.act_fn(u)
-        v = self.act_fn(v)
+#     def setup(self):
+#         self.act_fn = get_activation(self.act_name)
 
-        for _ in range(self.num_layers):
-            x = Dense(x.shape[-1], self.hidden_dim)(x)
-            x = nn.tanh(x)
-            x = x * u + (1 - x) * v
+#         self.modified_mlp_block = ModifiedMLPBlock(
+#             hidden_dim=self.hidden_dim,
+#             num_layers=self.num_layers,
+#             act_fn=self.act_fn
+#         )
+#         self.output_layer = Dense(self.hidden_dim, self.out_dim)
 
-        return x
+#     @nn.compact
+#     def __call__(self, x, t):
+#         x_emb = FourierEmbedding(
+#             emb_scale=self.emb_scale[0],
+#             emb_dim=self.emb_dim)(x)
+#         t_emb = FourierEmbedding(
+#             emb_scale=self.emb_scale[1],
+#             emb_dim=self.emb_dim)(t)
+
+#         x_emb = Dense(x_emb.shape[-1], self.hidden_dim)(x_emb)
+#         t_emb = Dense(t_emb.shape[-1], self.hidden_dim)(t_emb)
+
+#         x_features = self.modified_mlp_block(x_emb)
+#         t_features = self.modified_mlp_block(t_emb)
+
+#         combined = (x_features + 1) * (t_features + 1) - 1
+
+#         return self.output_layer(combined)
+
 
 class ModifiedMLP(nn.Module):
     act_name: str = "tanh"
@@ -140,123 +179,154 @@ class ModifiedMLP(nn.Module):
     emb_dim: int = 64
 
     def setup(self):
-        self.act_fn = getattr(nn, self.act_name)
-        self.main_block = ModifiedMLPBlock(
-            hidden_dim=self.hidden_dim,
-            num_layers=self.num_layers,
-            act_fn=self.act_fn
-        )
-        self.output_layer = Dense(self.hidden_dim, self.out_dim)
+        self.act_fn = get_activation(self.act_name)
 
     @nn.compact
     def __call__(self, x, t):
-        x_emb = FourierEmbedding(
-            emb_scale=self.emb_scale[0],
-            emb_dim=self.emb_dim)(x)
-        t_emb = FourierEmbedding(
-            emb_scale=self.emb_scale[1],
-            emb_dim=self.emb_dim)(t)
 
-        x_emb = Dense(x_emb.shape[-1], self.hidden_dim)(x_emb)
-        t_emb = Dense(t_emb.shape[-1], self.hidden_dim)(t_emb)
+        if self.fourier_emb:
+            t_emb = FourierEmbedding(self.emb_scale[1], self.emb_dim)(t)
+            x_emb = FourierEmbedding(self.emb_scale[0], self.emb_dim)(x)
+            # x_emb = RBFEmbedding()(x)
+            x = jnp.concatenate([x_emb, t_emb], axis=-1)
+        else:
+            x = jnp.concatenate([x, t], axis=-1)
 
-        x_features = self.main_block(x_emb)
-        t_features = self.main_block(t_emb)
+        u = Dense(x.shape[-1], self.hidden_dim)(x)
+        v = Dense(x.shape[-1], self.hidden_dim)(x)
+        u = self.act_fn(u)
+        v = self.act_fn(v)
 
-        combined = (x_features + 1) * (t_features + 1) - 1
+        for _ in range(self.num_layers):
+            x = Dense(x.shape[-1], self.hidden_dim)(x)
+            x = nn.tanh(x)
+            # x = self.act_fn(x)
+            x = x * u + (1 - x) * v
 
-        return self.output_layer(combined)
-
-
-
-# class ModifiedMLP(nn.Module):
-#     act_name: str = "tanh"
-#     num_layers: int = 4
-#     hidden_dim: int = 64
-#     out_dim: int = 2
-#     fourier_emb: bool = True
-#     emb_scale: tuple = (2.0, 2.0)
-#     emb_dim: int = 64
-
-#     def setup(self):
-#         self.act_fn = getattr(nn, self.act_name)
-
-#     @nn.compact
-#     def __call__(self, x, t):
-
-#         if self.fourier_emb:
-#             t_emb = FourierEmbedding(emb_scale=self.emb_scale[1], emb_dim=self.emb_dim)(
-#                 t
-#             )
-#             x_emb = FourierEmbedding(emb_scale=self.emb_scale[0], emb_dim=self.emb_dim)(
-#                 x
-#             )
-#             x = jnp.concatenate([x_emb, t_emb], axis=-1)
-#         else:
-#             x = jnp.concatenate([x, t], axis=-1)
-
-#         x1 = ModifiedMLPBlock(
-#             hidden_dim=self.hidden_dim,
-#             num_layers=self.num_layers,
-#             act_fn=self.act_fn
-#         )(x)
-#         x1 = Dense(x1.shape[-1], 1)(x1) # for phi 
-#         x2 = ModifiedMLPBlock(
-#             hidden_dim=self.hidden_dim,
-#             num_layers=self.num_layers,
-#             act_fn=self.act_fn
-#         )(x)
-#         x2 = Dense(x2.shape[-1], self.out_dim - 1)(x2) # for displacement, ux, uy, (uz if 3D)
-#         return jnp.concatenate([x1, x2], axis=-1)
-    
+        return Dense(x.shape[-1], self.out_dim)(x)
 
 
 
-# class ModifiedMLP(nn.Module):
-#     act_name: str = "tanh"
-#     num_layers: int = 4
-#     hidden_dim: int = 64
-#     out_dim: int = 2
-#     fourier_emb: bool = True
-#     emb_scale: tuple = (2.0, 2.0)
-#     emb_dim: int = 64
+class ExpertMLP(nn.Module):
+    act_name: str = "tanh"
+    num_layers: int = 6
+    hidden_dim: int = 64
+    out_dim: int = 3
 
-#     def setup(self):
-#         self.act_fn = getattr(nn, self.act_name)
+    def setup(self):
+        self.act_fn = get_activation(self.act_name)
 
-#     @nn.compact
-#     def __call__(self, x, t):
+    @nn.compact
+    def __call__(self, x):
+        for _ in range(self.num_layers):
+            x = Dense(x.shape[-1], self.hidden_dim)(x)
+            x = self.act_fn(x)
+        return Dense(x.shape[-1], self.out_dim)(x)
 
-#         if self.fourier_emb:
-#             t_emb = FourierEmbedding(emb_scale=self.emb_scale[1], emb_dim=self.emb_dim)(
-#                 t
-#             )
-#             x_emb = FourierEmbedding(emb_scale=self.emb_scale[0], emb_dim=self.emb_dim)(
-#                 x
-#             )
-#             x = jnp.concatenate([x_emb, t_emb], axis=-1)
-#         else:
-#             x = jnp.concatenate([x, t], axis=-1)
 
-#         u = Dense(x.shape[-1], self.hidden_dim)(x)
-#         v = Dense(x.shape[-1], self.hidden_dim)(x)
-#         u = self.act_fn(u)
-#         v = self.act_fn(v)
+class GatingNetwork(nn.Module):
+    n_experts: int = 4
+    hidden_dim: int = 64
+    num_layers: int = 6
+    act_name: str = "tanh"
 
-#         for _ in range(self.num_layers):
-#             x = Dense(x.shape[-1], self.hidden_dim)(x)
-#             x = nn.tanh(x)
-#             x = x * u + (1 - x) * v
+    def setup(self):
+        if self.act_name == "snake":
+            self.act_fn = Snake()
+        else:
+            self.act_fn = getattr(nn, self.act_name)
 
-#         # phi = Dense(x.shape[-1], self.hidden_dim)(x)
-#         # phi = self.act_fn(phi)
-#         # phi = Dense(self.hidden_dim, 1)(phi)
-#         # disp = Dense(x.shape[-1], self.hidden_dim)(x)
-#         # disp = self.act_fn(disp)
-#         # disp = Dense(self.hidden_dim, self.out_dim - 1)(disp)
-#         phi = Dense(x.shape[-1], 1)(x)
-#         disp = Dense(x.shape[-1], self.out_dim - 1)(x)
+    @nn.compact
+    def __call__(self, x):
+        for _ in range(self.num_layers):
+            x = Dense(x.shape[-1], self.hidden_dim)(x)
+            x = self.act_fn(x)
 
-#         return phi, disp
+        logits = Dense(x.shape[-1], self.n_experts)(x)
 
-#         # return Dense(x.shape[-1], self.out_dim)(x)
+        return nn.softmax(logits, axis=-1)
+
+
+class MixtureOfExperts(nn.Module):
+    n_experts: int = 4
+    hidden_dim: int = 64
+    num_layers: int = 6
+    out_dim: int = 3
+    act_name: str = "tanh"
+    fourier_emb: bool = False
+    emb_scale: tuple = (2.0, 2.0)
+    emb_dim: int = 64
+
+    def setup(self):
+        self.act_fn = get_activation(self.act_name)
+
+        self.experts = [ExpertMLP(
+            act_name=self.act_name,
+            num_layers=self.num_layers,
+            hidden_dim=self.hidden_dim,
+            out_dim=self.out_dim,
+        ) for _ in range(self.n_experts)]          
+
+    @nn.compact
+    def __call__(self, x, t):
+        if self.fourier_emb:
+            t_emb = FourierEmbedding(self.emb_scale[1], self.emb_dim)(t)
+            x_emb = FourierEmbedding(self.emb_scale[0], self.emb_dim)(x)
+            x = jnp.concatenate([x_emb, t_emb], axis=-1)
+        else:
+            x = jnp.concatenate([x, t], axis=-1)
+
+        gating_weights = GatingNetwork(
+            n_experts=self.n_experts,
+            hidden_dim=self.hidden_dim,
+            num_layers=self.num_layers,
+            act_name=self.act_name,
+        )(x)
+
+        # 使用预先创建的专家模型
+        expert_outputs = jnp.stack([expert(x) for expert in self.experts], axis=-1)
+
+        output = jnp.sum(gating_weights[None, ...] * expert_outputs, axis=-1)
+        return output
+
+
+class PirateNet(nn.Module):
+    act_name: str = "tanh"
+    num_layers: int = 4
+    hidden_dim: int = 64
+    out_dim: int = 2
+    fourier_emb: bool = True
+    emb_scale: tuple = (2.0, 2.0)
+    emb_dim: int = 64
+    nonlinearity: float = 0.5
+
+    def setup(self):
+        self.act_fn = get_activation(self.act_name)
+
+    @nn.compact
+    def __call__(self, x, t):
+        if self.fourier_emb:
+            t_emb = FourierEmbedding(self.emb_scale[1], self.emb_dim)(t)
+            x_emb = FourierEmbedding(self.emb_scale[0], self.emb_dim)(x)
+            x = jnp.concatenate([x_emb, t_emb], axis=-1)
+        else:
+            x = jnp.concatenate([x, t], axis=-1)
+
+        x = Dense(x.shape[-1], self.hidden_dim)(x)
+        u = Dense(x.shape[-1], self.hidden_dim)(x)
+        v = Dense(x.shape[-1], self.hidden_dim)(x)
+        u = self.act_fn(u)
+        v = self.act_fn(v)
+
+        for idx in range(self.num_layers):
+            identity = x
+
+            x = Dense(x.shape[-1], self.hidden_dim)(x)
+            x = nn.tanh(x)
+            x = x * u + (1 - x) * v
+            # x = Dense(x.shape[-1], self.hidden_dim)(x)
+            # x = nn.tanh(x)
+            alpha = self.param(f"alpha_{idx}", constant(self.nonlinearity), (1,))
+            x = alpha * x + (1 - alpha) * identity
+
+        return Dense(x.shape[-1], self.out_dim)(x)

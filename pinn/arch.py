@@ -5,15 +5,20 @@ import jax.numpy as jnp
 from flax import linen as nn
 from jax.nn.initializers import glorot_normal, normal, constant, zeros, uniform
 from .embeddings import FourierEmbedding, WaveletEmbedding
+from .activation import Snake, ModifiedReLU
 
 
-class Snake(nn.Module):
-    init_alpha: float = 5.0
 
-    @nn.compact
-    def __call__(self, x):
-        alpha = self.param("alpha", lambda key: jnp.ones((1,)) * self.init_alpha)
-        return x + (1.0 / alpha) * jnp.sin(alpha * x)**2
+
+
+def get_activation(name: str) -> Callable:
+    """Get activation function by name."""
+    if name == "snake":
+        return Snake()
+    elif name == "modified_relu":
+        return ModifiedReLU()
+    else:
+        return getattr(nn, name, nn.tanh)  # Default to tanh if not found
 
 
 class Dense(nn.Module):
@@ -45,10 +50,7 @@ class MLP(nn.Module):
     emb_dim: int = 64
 
     def setup(self):
-        if self.act_name == "snake":
-            self.act_fn = Snake()
-        else:
-            self.act_fn = getattr(nn, self.act_name)
+        self.act_fn = get_activation(self.act_name)
 
     @nn.compact
     def __call__(self, x, t):
@@ -81,10 +83,7 @@ class ResNet(nn.Module):
     emb_dim: int = 64
 
     def setup(self):
-        if self.act_name == "snake":
-            self.act_fn = Snake()
-        else:
-            self.act_fn = getattr(nn, self.act_name)
+        self.act_fn = get_activation(self.act_name)
 
     @nn.compact
     def __call__(self, x, t):
@@ -183,10 +182,7 @@ class ModifiedMLP(nn.Module):
     emb_dim: int = 64
 
     def setup(self):
-        if self.act_name == "snake":
-            self.act_fn = Snake()
-        else:
-            self.act_fn = getattr(nn, self.act_name)
+        self.act_fn = get_activation(self.act_name)
 
     @nn.compact
     def __call__(self, x, t):
@@ -221,10 +217,7 @@ class ExpertMLP(nn.Module):
     out_dim: int = 3
 
     def setup(self):
-        if self.act_name == "snake":
-            self.act_fn = Snake()
-        else:
-            self.act_fn = getattr(nn, self.act_name)
+        self.act_fn = get_activation(self.act_name)
 
     @nn.compact
     def __call__(self, x):
@@ -268,10 +261,7 @@ class MixtureOfExperts(nn.Module):
     emb_dim: int = 64
 
     def setup(self):
-        if self.act_name == "snake":
-            self.act_fn = Snake()
-        else:
-            self.act_fn = getattr(nn, self.act_name)
+        self.act_fn = get_activation(self.act_name)
 
         self.experts = [ExpertMLP(
             act_name=self.act_name,
@@ -314,10 +304,7 @@ class PirateNet(nn.Module):
     nonlinearity: float = 0.5
 
     def setup(self):
-        if self.act_name == "snake":
-            self.act_fn = Snake()
-        else:
-            self.act_fn = getattr(nn, self.act_name)
+        self.act_fn = get_activation(self.act_name)
 
     @nn.compact
     def __call__(self, x, t):
