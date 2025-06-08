@@ -186,7 +186,7 @@ class FractureSampler(Sampler):
             pde,
             ic, ic, ic,  # ic for phi, ux, uy
             bc["bottom"], bc["bottom"], bc["bottom"],  # bottom for phi, ux, uy
-            bc["top"], bc["top"], bc["top"], 
+            bc["top"], bc["top"],
             bc["crack"],
             # bc["vertical"],
             pde,

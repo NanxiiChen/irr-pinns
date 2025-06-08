@@ -171,6 +171,53 @@ class ModifiedMLPBlock(nn.Module):
 #         return self.output_layer(combined)
 
 
+# class ModifiedMLP(nn.Module):
+#     act_name: str = "tanh"
+#     num_layers: int = 4
+#     hidden_dim: int = 64
+#     out_dim: int = 2
+#     fourier_emb: bool = True
+#     emb_scale: tuple = (2.0, 2.0)
+#     emb_dim: int = 64
+
+#     def setup(self):
+#         self.act_fn = get_activation(self.act_name)
+
+#         self.phi_block = ModifiedMLPBlock(
+#             hidden_dim=self.hidden_dim,
+#             num_layers=self.num_layers,
+#             act_fn=self.act_fn
+#         )
+#         self.disp_block = ModifiedMLPBlock(
+#             hidden_dim=self.hidden_dim,
+#             num_layers=self.num_layers,
+#             act_fn=self.act_fn
+#         )
+#         self.phi_output_layer = Dense(self.hidden_dim, 1)
+#         self.disp_output_layer = Dense(self.hidden_dim, self.out_dim-1)
+
+        
+#     @nn.compact
+#     def __call__(self, x, t):
+#         x_emb = FourierEmbedding(
+#             emb_scale=self.emb_scale[0],
+#             emb_dim=self.emb_dim)(x)
+#         t_emb = FourierEmbedding(
+#             emb_scale=self.emb_scale[1],
+#             emb_dim=self.emb_dim)(t)
+
+#         phi_features = jnp.concatenate([x, t], axis=-1)
+#         disp_features = jnp.concatenate([x_emb, t_emb], axis=-1)
+
+#         phi = self.phi_block(phi_features)
+#         phi = self.phi_output_layer(phi)
+#         disp = self.disp_block(disp_features)
+#         disp = self.disp_output_layer(disp)
+
+#         return jnp.concatenate([phi, disp], axis=-1)
+
+
+
 class ModifiedMLP(nn.Module):
     act_name: str = "tanh"
     num_layers: int = 4
@@ -187,12 +234,12 @@ class ModifiedMLP(nn.Module):
     def __call__(self, x, t):
 
         if self.fourier_emb:
-            t_emb = FourierEmbedding(self.emb_scale[1], self.emb_dim)(t)
-            x_emb = FourierEmbedding(self.emb_scale[0], self.emb_dim)(x)
-            # x_emb = RBFEmbedding()(x)
-            x = jnp.concatenate([x_emb, t_emb], axis=-1)
-            # x = jnp.concatenate([x, t], axis=-1)
-            # x = FourierEmbedding(self.emb_scale[0], self.emb_dim)(x)
+            # t_emb = FourierEmbedding(self.emb_scale[1], self.emb_dim)(t)
+            # x_emb = FourierEmbedding(self.emb_scale[0], self.emb_dim)(x)
+            # # x_emb = RBFEmbedding()(x)
+            # x = jnp.concatenate([x_emb, t_emb], axis=-1)
+            x = jnp.concatenate([x, t], axis=-1)
+            x = FourierEmbedding(self.emb_scale[0], self.emb_dim)(x)
         else:
             x = jnp.concatenate([x, t], axis=-1)
 
@@ -203,8 +250,8 @@ class ModifiedMLP(nn.Module):
 
         for _ in range(self.num_layers):
             x = Dense(x.shape[-1], self.hidden_dim)(x)
-            x = nn.tanh(x)
-            # x = self.act_fn(x)
+            # x = nn.tanh(x)
+            x = self.act_fn(x)
             x = x * u + (1 - x) * v
 
         return Dense(x.shape[-1], self.out_dim)(x)

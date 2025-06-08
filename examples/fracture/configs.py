@@ -10,7 +10,7 @@ class Config:
     DECAY = 0.8
     DECAY_EVERY = 500
     STAGGER_PERIOD = 25
-    EMB_SCALE = (0.5, 2.0)  # emb sacle for (x, t)
+    EMB_SCALE = (0.5, 0.5)  # emb sacle for (x, t)
     EMB_DIM = 256
 
     DOMAIN = [[-0.5, 0.5], [-0.5, 0.5], [0, 1.0]]
@@ -24,7 +24,7 @@ class Config:
     TS = [0.0000, 0.2500, 0.5000, 0.8000, 1.0000]
 
     NUM_LAYERS = 6
-    HIDDEN_DIM = 400
+    HIDDEN_DIM = 200
     OUT_DIM = 3
 
     ACT_NAME = "swish"
@@ -39,7 +39,7 @@ class Config:
 
     GC = 2.7
     L = 0.024
-    UR = 0.0065
+    UR = 0.0055
     LOAD_ON_DIR = "y"
     LOAD_ON = 1 if LOAD_ON_DIR == "y" else 0
     LAMBDA = 121.1538e3
@@ -65,7 +65,7 @@ class Config:
     }
 
     @classmethod
-    def loading(cls, t, alpha=2.0):
+    def loading(cls, t, alpha=3.0):
         # return cls.UR * t
         return cls.UR / jnp.tanh(alpha) * jnp.tanh(alpha * t)
 

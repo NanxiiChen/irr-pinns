@@ -193,7 +193,7 @@ loss_terms = [
     "bc_bottom_ux",
     "bc_bottom_uy",
     "bc_top_phi",
-    "bc_top_ux",
+    # "bc_top_ux",
     "bc_top_uy",
     "bc_crack",
     # "bc_sigmax",
@@ -212,6 +212,7 @@ state = create_train_state(
     decay_every=cfg.DECAY_EVERY,
     xdim=cfg.DIM,
     optimizer=cfg.OPTIMIZER,
+    end_value=1e-5
 )
 
 
