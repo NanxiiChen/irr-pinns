@@ -188,6 +188,6 @@ class FractureSampler(Sampler):
             bc["bottom"], bc["bottom"], bc["bottom"],  # bottom for phi, ux, uy
             bc["top"], bc["top"], bc["top"], 
             bc["crack"],
-            bc["vertical"],
+            # bc["vertical"],
             pde,
         ]

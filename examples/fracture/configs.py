@@ -3,14 +3,14 @@ from jax import numpy as jnp
 
 class Config:
     EPOCHS = 100000
-    N_SAMPLES = 15
+    N_SAMPLES = 20
     ADAPTIVE_SAMPLES = 300
     ADAPTIVE_BASE_RATE = 10
     LR = 5e-4
-    DECAY = 0.9
+    DECAY = 0.8
     DECAY_EVERY = 500
     STAGGER_PERIOD = 25
-    EMB_SCALE = (1.0, 2.0)  # emb sacle for (x, t)
+    EMB_SCALE = (0.5, 2.0)  # emb sacle for (x, t)
     EMB_DIM = 256
 
     DOMAIN = [[-0.5, 0.5], [-0.5, 0.5], [0, 1.0]]
@@ -23,7 +23,7 @@ class Config:
     # TS = [0.0000, 0.3000, 0.7000, 0.7400, 0.7800]
     TS = [0.0000, 0.2500, 0.5000, 0.8000, 1.0000]
 
-    NUM_LAYERS = 6 
+    NUM_LAYERS = 6
     HIDDEN_DIM = 400
     OUT_DIM = 3
 
@@ -39,7 +39,7 @@ class Config:
 
     GC = 2.7
     L = 0.024
-    UR = 0.0060
+    UR = 0.0065
     LOAD_ON_DIR = "y"
     LOAD_ON = 1 if LOAD_ON_DIR == "y" else 0
     LAMBDA = 121.1538e3
@@ -58,9 +58,9 @@ class Config:
         "stress_eps": 1e-2,
         "pf_eps": 10,
         "step_size": 5,
-        "max_last_weight": 0.99,
-        "min_mean_weight": 0.6,
-        "max_eps": 10,
+        "max_last_weight": 0.9,
+        "min_mean_weight": 0.4,
+        "max_eps": 100,
         "chunks": 10,
     }
 

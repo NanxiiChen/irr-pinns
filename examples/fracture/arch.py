@@ -1,6 +1,6 @@
 from typing import Callable
 
-import jax
+from  jax import vmap
 import jax.numpy as jnp
 from flax import linen as nn
 from jax.nn.initializers import glorot_normal, normal, constant, zeros, uniform
@@ -161,10 +161,12 @@ class ModifiedMLPBlock(nn.Module):
 #         x_emb = Dense(x_emb.shape[-1], self.hidden_dim)(x_emb)
 #         t_emb = Dense(t_emb.shape[-1], self.hidden_dim)(t_emb)
 
-#         x_features = self.modified_mlp_block(x_emb)
-#         t_features = self.modified_mlp_block(t_emb)
+#         # x_features = self.modified_mlp_block(x_emb)
+#         # t_features = self.modified_mlp_block(t_emb)
+#         features = vmap(self.modified_mlp_block)(jnp.stack([x_emb, t_emb], axis=0))
+#         combined = jnp.prod(features, axis=0)
 
-#         combined = (x_features + 1) * (t_features + 1) - 1
+#         # combined = (x_features + 1) * (t_features + 1) - 1
 
 #         return self.output_layer(combined)
 

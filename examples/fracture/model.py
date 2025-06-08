@@ -74,9 +74,10 @@ class PINN(nn.Module):
         disp = disp / scale_factor
         # phi = jnp.tanh(phi) / 2 + 0.5
         # phi = self.scale_phi(phi)
-        phi = jnp.exp(-phi**2)
+        # phi = jnp.exp(-phi**2)
         # phi = jnp.exp(-jnp.abs(phi)*10)
         # phi = jnp.exp(-jax.nn.sigmoid(-phi*10)*10)
+        phi = jnp.exp(-jax.nn.softplus(-phi))
 
         # apply hard constraint on displacement
         # y0, y1 = self.cfg.DOMAIN[1]
@@ -236,7 +237,7 @@ class PINN(nn.Module):
             phi = jax.lax.stop_gradient(phi)
             # phi = -jnp.log(phi + 1e-10)
             # phi = 1 - (phi - jnp.min(phi)) / (jnp.max(phi) - jnp.min(phi))
-            causal_data = jnp.stack((t.reshape(-1), phi.reshape(-1)), axis=0)
+            causal_data = jnp.stack((phi.reshape(-1),), axis=0)
             loss, aux_vars = self.causal_weightor.compute_causal_loss(
                 residual, 
                 causal_data,

@@ -86,6 +86,8 @@ class CausalWeightor:
         bins = (self.bins[1:] + self.bins[:-1]) / 2
 
         fig, axes = plt.subplots(num_axis, 2, figsize=(10, 5*num_axis))
+        if num_axis == 1:
+            axes = axes.reshape(1, 2)
 
         for i in range(num_axis):
 

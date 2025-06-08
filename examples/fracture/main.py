@@ -196,7 +196,7 @@ loss_terms = [
     "bc_top_ux",
     "bc_top_uy",
     "bc_crack",
-    "bc_sigmax",
+    # "bc_sigmax",
     "irr",
 ]
 
@@ -266,8 +266,8 @@ for epoch in range(cfg.EPOCHS):
 
     if epoch % cfg.STAGGER_PERIOD == 0:
         batch = sampler.sample(
-            fns=[getattr(pinn, f"net_{pde_name}")],
-            # fns=[pinn.psi_pos],
+            # fns=[getattr(pinn, f"net_{pde_name}")],
+            fns=[pinn.psi_pos],
             params=state.params,
             rar=pinn.cfg.RAR
             # rar=pinn.cfg.RAR if pde_name == "pf" else False,
@@ -293,7 +293,7 @@ for epoch in range(cfg.EPOCHS):
     if epoch % cfg.STAGGER_PERIOD == 0:
 
         # save the model
-        if epoch % (40 * cfg.STAGGER_PERIOD) == 0:
+        if epoch % (20 * cfg.STAGGER_PERIOD) == 0:
             ckpt.save(log_path + f"/model-{epoch}", state)
 
             fig, error = evaluate2D(
@@ -328,7 +328,7 @@ for epoch in range(cfg.EPOCHS):
             ],
         )
 
-        if cfg.CAUSAL_WEIGHT and epoch % (40 * cfg.STAGGER_PERIOD) == 0:
+        if cfg.CAUSAL_WEIGHT and epoch % (20 * cfg.STAGGER_PERIOD) == 0:
             fig = pinn.causal_weightor.plot_causal_info(
                 aux_vars["causal_weights"],
                 aux_vars["loss_chunks"],
