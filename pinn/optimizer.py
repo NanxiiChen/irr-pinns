@@ -1,5 +1,5 @@
 from itertools import chain
-from typing import List, NamedTuple, Optional, Union, Any
+from typing import Any, List, NamedTuple, Optional, Union
 
 import jax
 import jax.numpy as jnp
@@ -435,3 +435,105 @@ def rprop(
         return updates, new_state
     
     return optax.GradientTransformation(init_fn, update_fn)
+
+
+
+from functools import partial
+from typing import Any, Callable, Optional, Tuple
+
+from jaxopt import LBFGS as JaxoptLBFGS
+
+
+class LBFGSState(NamedTuple):
+    """LBFGS优化器的状态"""
+    value_fun: Any  # 值函数
+    grad_fun: Any   # 梯度函数
+    solver: Any     # LBFGS求解器
+    step: int       # 当前步数
+    params: Any     # 当前参数（用于存储最后一次优化的结果）
+    aux: Any        # 辅助数据
+
+
+def lbfgs(
+    maxiter: int = 20,
+    history_size: int = 10,
+    tol: float = 1e-3,
+    line_search: str = "zoom",
+    verbose: bool = False,
+) -> optax.GradientTransformation:
+    """LBFGS (Limited-memory BFGS) 优化器。
+    
+    Args:
+        maxiter: 每次更新的最大迭代次数
+        history_size: 历史梯度和位移的存储数量
+        tol: 收敛容差
+        line_search: 线搜索方法，可选 "zoom", "backtracking"
+        verbose: 是否打印优化过程信息
+    
+    Returns:
+        optax.GradientTransformation: LBFGS优化器
+    """
+    
+    def init_fn(params):
+        # 初始化状态
+        # 注意：实际的求解器会在第一次update时创建
+        return LBFGSState(
+            value_fun=None,
+            grad_fun=None,
+            solver=None,
+            step=0,
+            params=params,
+            aux=None
+        )
+    
+    def update_fn(grads, state, params=None, **kwargs):
+        # LBFGS需要值函数和梯度函数
+        # 这些应该作为kwargs提供
+        value_fun = kwargs.get("value_fun", state.value_fun)
+        grad_fun = kwargs.get("grad_fun", state.grad_fun)
+        
+        if value_fun is None or grad_fun is None:
+            # 如果没有提供值函数或梯度函数，返回零更新
+            return jax.tree_map(jnp.zeros_like, params), state._replace(params=params)
+        
+        # 创建值和梯度函数
+        def value_and_grad_fn(params):
+            value = value_fun(params)
+            grads = grad_fun(params)
+            return value, grads
+        
+        # 第一次调用时创建求解器
+        solver = state.solver
+        if solver is None:
+            solver = JaxoptLBFGS(
+                fun=value_and_grad_fn,
+                value_and_grad=True,
+                maxiter=maxiter,
+                tol=tol,
+                history_size=history_size,
+                linesearch=line_search,
+                verbose=verbose
+            )
+        
+        # 运行LBFGS优化
+        new_params, solver_state = solver.run(params)
+        
+        # 计算更新
+        updates = jax.tree_map(
+            lambda new_p, p: new_p - p, 
+            new_params, params
+        )
+        
+        # 更新状态
+        new_state = LBFGSState(
+            value_fun=value_fun,
+            grad_fun=grad_fun,
+            solver=solver,
+            step=state.step + 1,
+            params=new_params,
+            aux=solver_state
+        )
+        
+        return updates, new_state
+    
+    return optax.GradientTransformationExtraArgs(init_fn, update_fn)

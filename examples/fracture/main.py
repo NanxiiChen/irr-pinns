@@ -193,11 +193,12 @@ loss_terms = [
     "bc_bottom_ux",
     "bc_bottom_uy",
     "bc_top_phi",
-    # "bc_top_ux",
+    "bc_top_ux",
     "bc_top_uy",
     "bc_crack",
-    # "bc_sigmax",
+    "bc_sigmax",
     "irr",
+    # "complementarity"
 ]
 
 pinn = FracturePINN(config=cfg, causal_weightor=causal_weightor, loss_terms=loss_terms)
@@ -241,7 +242,7 @@ sampler = FractureSampler(
 )
 
 stagger = StaggerSwitch(
-    pde_names=["stress_y", "stress_x", "pf", ], 
+    pde_names=["stress_y", "stress_x", "pf",], 
     stagger_period=cfg.STAGGER_PERIOD
 )
 
@@ -250,7 +251,7 @@ start_time = time.time()
 for epoch in range(cfg.EPOCHS):
 
     if epoch == cfg.CHANGE_OPT_AT:
-        print("Change optimizer to SOAP")
+        print("Change optimizer to rprop")
         current_params = state.params
         state = create_train_state(
             pinn.model,
@@ -265,10 +266,11 @@ for epoch in range(cfg.EPOCHS):
     # loss_fn = pinn.loss_fn_stress if pde_name == "stress" else pinn.loss_fn_pf
     loss_fn = getattr(pinn, f"loss_fn_{pde_name}")
 
-    if epoch % cfg.STAGGER_PERIOD == 0:
+    # if epoch % cfg.STAGGER_PERIOD == 0:
+    if epoch % 10 == 0:
         batch = sampler.sample(
-            # fns=[getattr(pinn, f"net_{pde_name}")],
-            fns=[pinn.psi_pos],
+            # fns=[pinn.net_pf, pinn.net_stress_x, pinn.net_stress_y],
+            fns=[pinn.net_speed],
             params=state.params,
             rar=pinn.cfg.RAR
             # rar=pinn.cfg.RAR if pde_name == "pf" else False,
@@ -294,7 +296,7 @@ for epoch in range(cfg.EPOCHS):
     if epoch % cfg.STAGGER_PERIOD == 0:
 
         # save the model
-        if epoch % (20 * cfg.STAGGER_PERIOD) == 0:
+        if epoch % (10 * cfg.STAGGER_PERIOD) == 0:
             ckpt.save(log_path + f"/model-{epoch}", state)
 
             fig, error = evaluate2D(
@@ -329,7 +331,7 @@ for epoch in range(cfg.EPOCHS):
             ],
         )
 
-        if cfg.CAUSAL_WEIGHT and epoch % (20 * cfg.STAGGER_PERIOD) == 0:
+        if cfg.CAUSAL_WEIGHT and epoch % (10 * cfg.STAGGER_PERIOD) == 0:
             fig = pinn.causal_weightor.plot_causal_info(
                 aux_vars["causal_weights"],
                 aux_vars["loss_chunks"],

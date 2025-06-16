@@ -36,8 +36,8 @@ def evaluate2D(pinn, params, mesh, ref_path, ts, **kwargs):
             mesh[:, 1],
             c=pred_phi,
             cmap="coolwarm",
-            # vmin=vmin,
-            # vmax=vmax,
+            vmin=vmin,
+            vmax=vmax,
         )
         ax.set(
             xlabel="x",

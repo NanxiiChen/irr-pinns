@@ -72,18 +72,18 @@ class PINN(nn.Module):
         phi, disp = jnp.split(sol, [1], axis=-1)
         scale_factor = jnp.array([1.0, 1.0]) * self.cfg.DISP_PRE_SCALE
         disp = disp / scale_factor
-        phi = jnp.tanh(phi) / 2 + 0.5
+        # phi = jnp.tanh(phi) / 2 + 0.5
         # phi = self.scale_phi(phi)
         # phi = jnp.exp(-phi**2)
         # phi = jnp.exp(-jnp.abs(phi)*10)
         # phi = jnp.exp(-jax.nn.sigmoid(-phi*10)*10)
-        # phi = jnp.exp(-jax.nn.softplus(-phi))
+        phi = jnp.exp(-jax.nn.softplus(-phi))
 
         # apply hard constraint on displacement
         # y0, y1 = self.cfg.DOMAIN[1]
         # ux, uy = jnp.split(disp, 2, axis=-1)
-        # ux = (x[1]-y0)*(x[1]- y1)*ux * t
-        # uy = (x[1]-y0)*(x[1]- y1)*uy* t + (x[1]-y0)*(y1-y0)*self.cfg.loading(t)
+        # ux = (x[1]-y0)*(x[1]- y1)*ux
+        # uy = (x[1]-y0)*(x[1]- y1)*uy + (x[1]-y0)/(y1-y0)*self.cfg.loading(t)
         # disp = jnp.concatenate((ux, uy), axis=-1)
         return phi, disp
 
@@ -142,6 +142,9 @@ class PINN(nn.Module):
         # sigma_cdot_nabla_phi[i]: sigma_ij * dphi / dx_j
         sigma_cdot_nabla_phi = jnp.einsum("ij,j->i", sigma, nabla_phi)
         stress = (1 - phi) ** 2 * div_sigma - 2 * (1 - phi) * sigma_cdot_nabla_phi
+
+        # stress = jnp.sum(jnp.abs(stress), axis=-1)
+
         return stress / self.cfg.STRESS_PRE_SCALE
 
     def net_stress_x(self, params, x, t):
@@ -151,7 +154,7 @@ class PINN(nn.Module):
         return self.net_stress(params, x, t)[1]
 
     @partial(jit, static_argnums=(0,))
-    def net_pf(self, params, x, t):
+    def _net_pf(self, params, x, t):
         phi, disp = self.net_u(params, x, t)
         phi = phi.squeeze(-1)
         hess_phi_x = jax.hessian(lambda x, t: self.net_u(params, x, t)[0], argnums=0)(
@@ -164,6 +167,16 @@ class PINN(nn.Module):
         ) * self.psi_pos(params, x, t)
 
         return pf / self.cfg.PF_PRE_SCALE
+    
+    def net_pf(self, params, x, t):
+        pf = self._net_pf(params, x, t)
+        # return jax.nn.relu(-pf)
+        return pf
+    
+    def complementarity(self, params, x, t):
+        pf = self._net_pf(params, x, t)
+        dphi_dt = self.net_speed(params, x, t)
+        return dphi_dt * pf
 
     @partial(jit, static_argnums=(0,))
     def net_pf_energy(self, params, x, t):
@@ -190,7 +203,7 @@ class PINN(nn.Module):
         # jac_dt = jax.jacrev(self.net_u, argnums=2)
         # dphi_dt, dc_dt = jac_dt(params, x, t)
         dphi_dt = jax.jacrev(lambda x, t: self.net_u(params, x, t)[0], argnums=1)(x, t)[
-            0
+            0, 0
         ]
         return dphi_dt
 
@@ -206,12 +219,12 @@ class PINN(nn.Module):
 
         fn = getattr(self, f"net_{pde_name}")
         residual = vmap(fn, in_axes=(None, 0, 0))(params, x, t)
-        if pde_name == "stress":
-            mse_res = jnp.mean(residual**2, axis=0)
-            weights = jax.lax.stop_gradient(
-                jnp.sqrt(jnp.sum(mse_res, axis=-1) / (mse_res + 1e-6))
-            )
-            residual = jnp.sum(jnp.abs(residual) * weights, axis=-1)
+        # if pde_name == "stress":
+        #     mse_res = jnp.mean(residual**2, axis=0)
+        #     weights = jax.lax.stop_gradient(
+        #         jnp.sqrt(jnp.sum(mse_res, axis=-1) / (mse_res + 1e-6))
+        #     )
+        #     residual = jnp.sum(jnp.abs(residual) * weights, axis=-1)
 
         # point-wise weight
         if self.cfg.POINT_WISE_WEIGHT:
@@ -237,7 +250,7 @@ class PINN(nn.Module):
             phi = jax.lax.stop_gradient(phi)
             # phi = -jnp.log(phi + 1e-10)
             # phi = 1 - (phi - jnp.min(phi)) / (jnp.max(phi) - jnp.min(phi))
-            causal_data = jnp.stack((phi.reshape(-1),), axis=0)
+            causal_data = jnp.stack((t.reshape(-1), phi.reshape(-1),), axis=0)
             loss, aux_vars = self.causal_weightor.compute_causal_loss(
                 residual, 
                 causal_data,
@@ -256,6 +269,16 @@ class PINN(nn.Module):
         x, t = batch
         dphi_dt = vmap(self.net_speed, in_axes=(None, 0, 0))(params, x, t)
         return jnp.mean(jax.nn.relu(-dphi_dt)), {}
+    
+    def loss_irr_pf(self, params, batch, *args, **kwargs):
+        x, t = batch
+        pf = vmap(self._net_pf, in_axes=(None, 0, 0))(params, x, t)
+        return jnp.mean(jax.nn.relu(-pf)), {}
+    
+    def loss_complementarity(self, params, batch, *args, **kwargs):
+        x, t = batch
+        comp = vmap(self.complementarity, in_axes=(None, 0, 0))(params, x, t)
+        return jnp.mean(comp**2), {}
 
     # def loss_flux(self, params, batch):
     #     x, t = batch
@@ -308,7 +331,7 @@ class PINN(nn.Module):
         grad_norms = jnp.array([tree_norm(grad) for grad in grads])
 
         grad_norms = jnp.clip(grad_norms, eps, 1 / eps)
-        # weights = jnp.mean(grad_norms) / (grad_norms + eps)
+        # weights = jnp.sum(grad_norms) / (grad_norms + eps)
         weights = 1.0 / (grad_norms + eps)
         weights = jnp.nan_to_num(weights)
         weights = jnp.clip(weights, eps, 1 / eps)

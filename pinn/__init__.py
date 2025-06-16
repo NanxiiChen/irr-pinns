@@ -9,7 +9,7 @@ from .metrics import MetricsTracker
 # from .model import PINN
 from .sample import lhs_sampling, mesh_flat, shifted_grid, Sampler
 from .utils import StaggerSwitch
-from .train import train_step, create_train_state, StaggerSwitch
+from .train import train_step, create_train_state, StaggerSwitch, lbfgs_train_step
 
 
 

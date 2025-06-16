@@ -6,7 +6,7 @@ from flax import linen as nn
 from jax.nn.initializers import glorot_normal, normal, constant, zeros, uniform
 
 
-from pinn.embeddings import FourierEmbedding, WaveletEmbedding
+from pinn.embeddings import FourierEmbedding, ExponentialEmbedding
 from pinn.activation import Snake, ModifiedReLU
 
 
@@ -199,16 +199,10 @@ class ModifiedMLPBlock(nn.Module):
         
 #     @nn.compact
 #     def __call__(self, x, t):
-#         x_emb = FourierEmbedding(
-#             emb_scale=self.emb_scale[0],
-#             emb_dim=self.emb_dim)(x)
-#         t_emb = FourierEmbedding(
-#             emb_scale=self.emb_scale[1],
-#             emb_dim=self.emb_dim)(t)
 
 #         phi_features = jnp.concatenate([x, t], axis=-1)
-#         disp_features = jnp.concatenate([x_emb, t_emb], axis=-1)
-
+#         disp_features = FourierEmbedding(emb_scale=self.emb_scale[0], emb_dim=self.emb_dim)(jnp.concatenate([x, t], axis=-1))
+#         # x = jnp.concatenate([x, t], axis=-1)
 #         phi = self.phi_block(phi_features)
 #         phi = self.phi_output_layer(phi)
 #         disp = self.disp_block(disp_features)
@@ -234,12 +228,16 @@ class ModifiedMLP(nn.Module):
     def __call__(self, x, t):
 
         if self.fourier_emb:
-            # t_emb = FourierEmbedding(self.emb_scale[1], self.emb_dim)(t)
-            # x_emb = FourierEmbedding(self.emb_scale[0], self.emb_dim)(x)
-            # # x_emb = RBFEmbedding()(x)
-            # x = jnp.concatenate([x_emb, t_emb], axis=-1)
-            x = jnp.concatenate([x, t], axis=-1)
-            x = FourierEmbedding(self.emb_scale[0], self.emb_dim)(x)
+            x_emb = FourierEmbedding(self.emb_scale[0], self.emb_dim)(x)
+            # t_emb = ExponentialEmbedding(self.emb_scale[1], self.emb_dim*2)(t)
+            t_emb = Dense(t.shape[-1], self.emb_dim*2)(t)
+            # x = (x_emb + 1) * (t_emb + 1) - 1
+            x = jnp.concatenate([x_emb, t_emb], axis=-1)
+            # x_con = jnp.concatenate([x, t], axis=-1)
+            # x = FourierEmbedding(self.emb_scale[0], self.emb_dim)(x_con)
+            # x1 = FourierEmbedding(self.emb_scale[0], self.emb_dim)(x_con)
+            # x2 = FourierEmbedding(self.emb_scale[1], self.emb_dim)(x_con)
+            # x = jnp.concatenate([x1, x2], axis=-1)
         else:
             x = jnp.concatenate([x, t], axis=-1)
 
@@ -250,8 +248,8 @@ class ModifiedMLP(nn.Module):
 
         for _ in range(self.num_layers):
             x = Dense(x.shape[-1], self.hidden_dim)(x)
-            # x = nn.tanh(x)
-            x = self.act_fn(x)
+            x = nn.tanh(x)
+            # x = self.act_fn(x)
             x = x * u + (1 - x) * v
 
         return Dense(x.shape[-1], self.out_dim)(x)
@@ -334,7 +332,6 @@ class MixtureOfExperts(nn.Module):
             act_name=self.act_name,
         )(x)
 
-        # 使用预先创建的专家模型
         expert_outputs = jnp.stack([expert(x) for expert in self.experts], axis=-1)
 
         output = jnp.sum(gating_weights[None, ...] * expert_outputs, axis=-1)

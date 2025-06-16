@@ -52,16 +52,16 @@ class ExponentialEmbedding(nn.Module):
 
     @nn.compact
     def __call__(self, x):
-        low, high = 1 / self.emb_scale, self.emb_scale
+        low, high = 0, self.emb_scale
 
         def kernel_init(key, shape, dtype=jnp.float32):
             return jax.random.uniform(key, shape, dtype=dtype, minval=low, maxval=high)
 
         kernel = self.param("kernel", kernel_init, (x.shape[-1], self.emb_dim))
-        x = jnp.dot(x, jnp.ones((x.shape[-1], self.emb_dim)))
-        x = x**kernel
-        return x.reshape(-1)
-
+        x_proj = jnp.dot(x, kernel)
+        embedded = jnp.exp(x_proj)
+        
+        return embedded
 
 class WaveletEmbedding(nn.Module):
     levels: int = 4
