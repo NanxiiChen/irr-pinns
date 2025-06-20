@@ -154,8 +154,10 @@ class FracturePINN(PINN):
         sigma = vmap(
             self.sigma, in_axes=(None, 0, 0)
         )(params, x, t)
-        traction_vectors = jnp.einsum('ijk,k->ij', sigma, norm_vector)
-        res = traction_vectors[:, 0] * (1 - phi)**2
+        traction_vectors = jnp.einsum('ijk,k->ij', sigma, norm_vector) # shape [batch, 2]
+        phi = jnp.expand_dims(phi, axis=-1)  # shape [batch, 1]
+        res = traction_vectors * (1 - phi)**2
+        res = jnp.linalg.norm(res, ord=1, axis=-1)
         return jnp.mean(res**2), {}
 
     def loss_pf_energy(self, params, batch, *args, **kwargs):
@@ -213,7 +215,7 @@ state = create_train_state(
     decay_every=cfg.DECAY_EVERY,
     xdim=cfg.DIM,
     optimizer=cfg.OPTIMIZER,
-    end_value=1e-5
+    end_value=1e-6
 )
 
 
@@ -242,7 +244,7 @@ sampler = FractureSampler(
 )
 
 stagger = StaggerSwitch(
-    pde_names=["stress_y", "stress_x", "pf",], 
+    pde_names=["stress_y", "stress_x", "pf"], 
     stagger_period=cfg.STAGGER_PERIOD
 )
 
@@ -251,7 +253,7 @@ start_time = time.time()
 for epoch in range(cfg.EPOCHS):
 
     if epoch == cfg.CHANGE_OPT_AT:
-        print("Change optimizer to rprop")
+        print("Change optimizer to soap")
         current_params = state.params
         state = create_train_state(
             pinn.model,
@@ -270,7 +272,7 @@ for epoch in range(cfg.EPOCHS):
     if epoch % 10 == 0:
         batch = sampler.sample(
             # fns=[pinn.net_pf, pinn.net_stress_x, pinn.net_stress_y],
-            fns=[pinn.net_speed],
+            fns=[pinn.psi],
             params=state.params,
             rar=pinn.cfg.RAR
             # rar=pinn.cfg.RAR if pde_name == "pf" else False,

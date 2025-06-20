@@ -139,8 +139,8 @@ class FractureSampler(Sampler):
             axis=1,
         )
         yt = lhs_sampling(
-            mins=[self.domain[0][0], self.domain[1][0]],
-            maxs=[self.domain[0][1], self.domain[1][1]],
+            mins=[self.domain[1][0], self.domain[2][0]],
+            maxs=[self.domain[1][1], self.domain[2][1]],
             num=self.n_samples**2*5,
             key=key,
         )
@@ -152,7 +152,8 @@ class FractureSampler(Sampler):
             [jnp.ones_like(yt[:, 0:1]) * self.domain[0][0], yt[:, 0:1], yt[:, 1:2]],
             axis=1,
         )
-        vertical = jnp.concatenate([left, right], axis=0)
+        vertical = jnp.concatenate([right,left], axis=0)
+
 
         crack = lhs_sampling(
             mins=[self.domain[0][0], -0.05, self.domain[2][0]],
@@ -184,7 +185,7 @@ class FractureSampler(Sampler):
         # the last pde: irreversible
         return [
             pde,
-            ic, ic,ic,
+            ic, ic, ic,
             bc["bottom"],bc["bottom"],bc["bottom"],
             bc["top"], bc["top"], bc["top"], 
             bc["crack"],

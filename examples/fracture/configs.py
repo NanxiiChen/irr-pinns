@@ -3,14 +3,14 @@ from jax import numpy as jnp
 
 class Config:
     EPOCHS = 100000
-    N_SAMPLES = 20
-    ADAPTIVE_SAMPLES = 500
-    ADAPTIVE_BASE_RATE = 10
+    N_SAMPLES = 15
+    ADAPTIVE_SAMPLES = 1000
+    ADAPTIVE_BASE_RATE = 8
     LR = 5e-4
-    DECAY = 0.8
-    DECAY_EVERY = 500
+    DECAY = 0.9
+    DECAY_EVERY = 2000
     STAGGER_PERIOD = 50
-    EMB_SCALE = (0.5, 2.0)  # emb sacle for (x, t)
+    EMB_SCALE = (1.0, 1.0)  # emb sacle for (x, t)
     EMB_DIM = 256
 
     DOMAIN = [[-0.5, 0.5], [-0.5, 0.5], [0, 1.0]]
@@ -19,18 +19,18 @@ class Config:
     LOG_DIR = "/root/autodl-tmp/tf-logs"
     PREFIX = "fracture/irr"
     RESUME = None
-    # RESUME = "/root/autodl-tmp/tf-logs/fracture/irr/2025-06-04-00-19-13/model-50000/"
+    # RESUME = "/root/autodl-tmp/tf-logs/fracture/irr/0617-baseline-33k/model-30000/"
     # TS = [0.0000, 0.3000, 0.7000, 0.7400, 0.7800]
     TS = [0.0000, 0.2500, 0.5000, 0.7500, 1.0000]
 
-    NUM_LAYERS = 6
-    HIDDEN_DIM = 300
+    NUM_LAYERS = 4
+    HIDDEN_DIM = 500
     OUT_DIM = 3
 
     ACT_NAME = "swish"
     ARCH_NAME = "modified_mlp"
     OPTIMIZER = "adam"
-    CHANGE_OPT_AT = 200000000
+    CHANGE_OPT_AT = 100000
     FOURIER_EMB = True
     CAUSAL_WEIGHT = True
     IRR = True
@@ -57,9 +57,10 @@ class Config:
         "stress_y_eps": 1e-2,
         "stress_eps": 1e-2,
         "pf_eps": 10,
+        "energy_eps": 1e-2,
         "step_size": 5,
-        "max_last_weight": 0.99,
-        "min_mean_weight": 0.4,
+        "max_last_weight": 0.98,
+        "min_mean_weight": 0.5,
         "max_eps": 10,
         "chunks": 10,
     }
