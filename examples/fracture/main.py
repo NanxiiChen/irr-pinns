@@ -155,10 +155,12 @@ class FracturePINN(PINN):
             self.sigma, in_axes=(None, 0, 0)
         )(params, x, t)
         traction_vectors = jnp.einsum('ijk,k->ij', sigma, norm_vector) # shape [batch, 2]
+        # res = traction_vectors[:, 0] * (1 - phi)**2  # traction in x direction
         phi = jnp.expand_dims(phi, axis=-1)  # shape [batch, 1]
         res = traction_vectors * (1 - phi)**2
-        res = jnp.linalg.norm(res, ord=1, axis=-1)
         return jnp.mean(res**2), {}
+        # res = jnp.sum(jnp.abs(res), axis=-1)
+        # return jnp.mean(res**2), {}
 
     def loss_pf_energy(self, params, batch, *args, **kwargs):
         x, t = batch
@@ -193,10 +195,10 @@ loss_terms = [
     "ic_uy",
     "bc_bottom_phi",
     "bc_bottom_ux",
-    "bc_bottom_uy",
+    # "bc_bottom_uy",
     "bc_top_phi",
     "bc_top_ux",
-    "bc_top_uy",
+    # "bc_top_uy",
     "bc_crack",
     "bc_sigmax",
     "irr",
@@ -244,7 +246,7 @@ sampler = FractureSampler(
 )
 
 stagger = StaggerSwitch(
-    pde_names=["stress_y", "stress_x", "pf"], 
+    pde_names=["stress", "pf"], 
     stagger_period=cfg.STAGGER_PERIOD
 )
 
@@ -272,7 +274,8 @@ for epoch in range(cfg.EPOCHS):
     if epoch % 10 == 0:
         batch = sampler.sample(
             # fns=[pinn.net_pf, pinn.net_stress_x, pinn.net_stress_y],
-            fns=[pinn.psi],
+            # fns=[pinn.net_speed],
+            fns=[getattr(pinn, f"net_{pde_name}")],
             params=state.params,
             rar=pinn.cfg.RAR
             # rar=pinn.cfg.RAR if pde_name == "pf" else False,
@@ -298,7 +301,7 @@ for epoch in range(cfg.EPOCHS):
     if epoch % cfg.STAGGER_PERIOD == 0:
 
         # save the model
-        if epoch % (10 * cfg.STAGGER_PERIOD) == 0:
+        if epoch % 500 == 0:
             ckpt.save(log_path + f"/model-{epoch}", state)
 
             fig, error = evaluate2D(
@@ -333,7 +336,7 @@ for epoch in range(cfg.EPOCHS):
             ],
         )
 
-        if cfg.CAUSAL_WEIGHT and epoch % (10 * cfg.STAGGER_PERIOD) == 0:
+        if cfg.CAUSAL_WEIGHT and epoch % 500 == 0:
             fig = pinn.causal_weightor.plot_causal_info(
                 aux_vars["causal_weights"],
                 aux_vars["loss_chunks"],

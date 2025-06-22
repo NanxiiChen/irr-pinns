@@ -44,9 +44,9 @@ class PINN(nn.Module):
         )
         self.causal_weightor = causal_weightor
 
-        # self.loss_fn_stress = partial(self.loss_fn, pde_name="stress")
-        self.loss_fn_stress_x = partial(self.loss_fn, pde_name="stress_x")
-        self.loss_fn_stress_y = partial(self.loss_fn, pde_name="stress_y")
+        self.loss_fn_stress = partial(self.loss_fn, pde_name="stress")
+        # self.loss_fn_stress_x = partial(self.loss_fn, pde_name="stress_x")
+        # self.loss_fn_stress_y = partial(self.loss_fn, pde_name="stress_y")
         self.loss_fn_pf = partial(self.loss_fn, pde_name="pf")
         # self.loss_fn_energy = partial(self.loss_fn, pde_name="energy")
 
@@ -73,7 +73,7 @@ class PINN(nn.Module):
         disp = disp / scale_factor
         # phi = jnp.tanh(phi) / 2 + 0.5
         # phi = self.scale_phi(phi)
-        # phi = jnp.exp(-phi**2*5)
+        # phi = jnp.exp(-phi**2)
         # phi = jnp.exp(-jnp.abs(phi)*10)
         # phi = jnp.exp(-jax.nn.sigmoid(-phi*10)*10)
         phi = jnp.exp(-jax.nn.softplus(-phi))
@@ -81,11 +81,11 @@ class PINN(nn.Module):
         # phi = jnp.exp(-jnp.abs(x[1]) / self.cfg.L) * (jnp.tanh(phi) / 2 + 0.5)
 
         # apply hard constraint on displacement
-        # y0, y1 = self.cfg.DOMAIN[1]
-        # ux, uy = jnp.split(disp, 2, axis=-1)
+        y0, y1 = self.cfg.DOMAIN[1]
+        ux, uy = jnp.split(disp, 2, axis=-1)
         # ux = (x[1]-y0)*(x[1]- y1)*ux
-        # uy = (x[1]-y0)*(x[1]- y1)*uy + (x[1]-y0)/(y1-y0)*self.cfg.loading(t)
-        # disp = jnp.concatenate((ux, uy), axis=-1)
+        uy = (x[1]-y0)*(x[1]- y1)*uy + (x[1]-y0)/(y1-y0)*self.cfg.loading(t)
+        disp = jnp.concatenate((ux, uy), axis=-1)
         return phi, disp
 
     @partial(jit, static_argnums=(0,))
@@ -150,6 +150,7 @@ class PINN(nn.Module):
         stress = (1 - phi) ** 2 * div_sigma - 2 * (1 - phi) * sigma_cdot_nabla_phi
 
         # stress = jnp.sum(jnp.abs(stress), axis=-1)
+        stress = jnp.sqrt(jnp.sum(stress**2, axis=-1))
 
         return stress / self.cfg.STRESS_PRE_SCALE
 
@@ -170,7 +171,8 @@ class PINN(nn.Module):
 
         pf = self.cfg.GC * (phi / self.cfg.L - self.cfg.L * lap_phi) - 2 * (
             1 - phi
-        ) * self.psi(params, x, t)
+        ) * self.psi_pos(params, x, t)
+        # pf = jax.nn.relu(-pf)
 
         return pf / self.cfg.PF_PRE_SCALE
     
@@ -269,8 +271,8 @@ class PINN(nn.Module):
             # loss, aux_vars = self.causal_weightor.compute_causal_loss(residual, t, eps)
             phi, _ = vmap(self.net_u, in_axes=(None, 0, 0))(params, x, t)
             phi = jax.lax.stop_gradient(phi)
-            # causal_data = jnp.stack((t.reshape(-1), phi.reshape(-1),), axis=0)
-            causal_data = jnp.stack((phi.reshape(-1),), axis=0)
+            causal_data = jnp.stack((t.reshape(-1), phi.reshape(-1),), axis=0)
+            # causal_data = jnp.stack((t.reshape(-1),), axis=0)
             loss, aux_vars = self.causal_weightor.compute_causal_loss(
                 residual, 
                 causal_data,

@@ -6,7 +6,7 @@ from flax import linen as nn
 from jax.nn.initializers import glorot_normal, normal, constant, zeros, uniform
 
 
-from pinn.embeddings import FourierEmbedding, ExponentialEmbedding
+from pinn.embeddings import FourierEmbedding, WaveletEmbedding
 from pinn.activation import Snake, ModifiedReLU
 
 
@@ -224,18 +224,21 @@ class ModifiedMLP(nn.Module):
     def setup(self):
         self.act_fn = get_activation(self.act_name)
 
+
     @nn.compact
     def __call__(self, x, t):
 
         if self.fourier_emb:
-            x = FourierEmbedding(self.emb_scale[0], self.emb_dim)(jnp.concatenate([x, t], axis=-1))
             # x_emb = FourierEmbedding(self.emb_scale[0], self.emb_dim)(x)
             # t_emb = self.act_fn(Dense(t.shape[-1], self.emb_dim*2)(t))
+            # x = (x_emb+1) * (t_emb+1) - 1
+            x = FourierEmbedding(self.emb_scale[0], self.emb_dim)(jnp.concatenate([x, t], axis=-1))
+            # x_emb = WaveletEmbedding(emb_dim=self.emb_dim, wavelet_type='mexican_hat')(x)
+            # t_emb = self.act_fn(Dense(t.shape[-1], self.emb_dim)(t))
             # x = jnp.concatenate([x_emb, t_emb], axis=-1)
-            # t_emb = FourierEmbedding(self.emb_scale[1], self.emb_dim)(t)
-            # x = x_emb * t_emb
         else:
             x = jnp.concatenate([x, t], axis=-1)
+
 
         u = Dense(x.shape[-1], self.hidden_dim)(x)
         v = Dense(x.shape[-1], self.hidden_dim)(x)
@@ -244,11 +247,12 @@ class ModifiedMLP(nn.Module):
 
         for _ in range(self.num_layers):
             x = Dense(x.shape[-1], self.hidden_dim)(x)
-            x = nn.tanh(x)
-            # x = self.act_fn(x)
+            # x = nn.tanh(x)
+            x = self.act_fn(x)
             x = x * u + (1 - x) * v
         
         return Dense(x.shape[-1], self.out_dim)(x)
+
 
 
 
