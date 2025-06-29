@@ -4,14 +4,14 @@ from jax import numpy as jnp
 class Config:
     EPOCHS = 100000
     N_SAMPLES = 20
-    ADAPTIVE_SAMPLES = 500
+    ADAPTIVE_SAMPLES = 300
     ADAPTIVE_BASE_RATE = 6
     LR = 5e-4
     DECAY = 0.9
     DECAY_EVERY = 2000
     STAGGER_PERIOD = 25
     EMB_SCALE = (1.0, 1.0)  # emb sacle for (x, t)
-    EMB_DIM = 256
+    EMB_DIM = 128
 
     DOMAIN = [[-0.5, 0.5], [-0.5, 0.5], [0, 1.0]]
     DIM = 2
@@ -35,7 +35,7 @@ class Config:
     CAUSAL_WEIGHT = False
     IRR = True
     POINT_WISE_WEIGHT = False   # 有两种形式，1/(alpha + grad(phi)) 或者 exp(-grad(phi)*alpha)
-    RAR = False   # RAR 和PWW实际上是相反作用，RAR强调界面，PWW弱化界面
+    RAR = True   # RAR 和PWW实际上是相反作用，RAR强调界面，PWW弱化界面
     DEAD_POINTS_WEIGHT = False
 
     GC = 2.7
