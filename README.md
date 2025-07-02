@@ -4,10 +4,10 @@ PINNs with irreversibility constraints.
 
 ## Corrosion
 
-![Ice Melting](./figures/corrosion2d1pit-radius.png)
-![Ice Melting](./figures/corrosion2d1pit-sol.png)
-![Ice Melting](./figures/corrosion2d1pit-error-log.png)
-![Ice Melting](./figures/corrosion2d1pit-irrloss-log.png)
+![Corrosion](./figures/corrosion2d1pit-radius.png)
+![Corrosion](./figures/corrosion2d1pit-sol.png)
+![Corrosion](./figures/corrosion2d1pit-error-log.png)
+![Corrosion](./figures/corrosion2d1pit-irrloss-log.png)
 
 ## Ice melting
 
@@ -18,4 +18,5 @@ PINNs with irreversibility constraints.
 
 ## Fracture
 
-To be added.
+![Fracture](./figures/fracture-t-disp.png)
+![Fracture](./figures/fracture-sol.png)

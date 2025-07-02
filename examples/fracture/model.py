@@ -187,7 +187,7 @@ class PINN(nn.Module):
 
         pf = self.cfg.GC * (phi / self.cfg.L - self.cfg.L * lap_phi) - 2 * (
             1 - phi
-        ) * self.psi(params, x, t)
+        ) * self.psi_pos(params, x, t)
 
         return pf / self.cfg.PF_PRE_SCALE
     

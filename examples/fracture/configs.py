@@ -71,6 +71,15 @@ class Config:
     def loading(cls, t, alpha=4.0):
         # return cls.UR * t
         return cls.UR / jnp.tanh(alpha) * jnp.tanh(alpha * t)
+    
+
+    @classmethod
+    def loading_reverse(cls, loading, alpha=4.0):
+        # give loading, return t
+        return jnp.arctanh(
+            loading * jnp.tanh(alpha) / cls.UR
+        ) / alpha
+
 
 # if __name__ == "__main__":
 #     for key, value in Config.__dict__.items():self.adaptive_kw["num"]
