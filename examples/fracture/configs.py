@@ -4,7 +4,7 @@ from jax import numpy as jnp
 class Config:
     EPOCHS = 100000
     N_SAMPLES = 20
-    ADAPTIVE_SAMPLES = 300
+    ADAPTIVE_SAMPLES = 500
     ADAPTIVE_BASE_RATE = 6
     LR = 5e-4
     DECAY = 0.9
