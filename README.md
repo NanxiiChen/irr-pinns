@@ -20,3 +20,5 @@ PINNs with irreversibility constraints.
 
 ![Fracture](./figures/fracture-t-disp.png)
 ![Fracture](./figures/fracture-sol.png)
+
+## Combustion
