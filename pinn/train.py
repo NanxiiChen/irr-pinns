@@ -12,7 +12,11 @@ def create_train_state(model, rng, lr, **kwargs):
     decay = kwargs.get("decay", 0.9)
     decay_every = kwargs.get("decay_every", 1000)
     xdim = kwargs.get("xdim", 3)
-    params = model.init(rng, jnp.ones(xdim), jnp.ones(1))
+    time_dependent = kwargs.get("time_dependent", True)
+    if time_dependent:
+        params = model.init(rng, jnp.ones(xdim), jnp.ones(1))
+    else:
+        params = model.init(rng, jnp.ones(xdim))
     opt_method = kwargs.get("optimizer", "adam")
     scheduler = optax.exponential_decay(lr, decay_every, decay, 
                                         staircase=False, 

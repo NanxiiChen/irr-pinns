@@ -8,8 +8,10 @@ import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import orbax.checkpoint as ocp
-from jax import jit, random
-
+from jax import jit, random, vmap
+jax.config.update("jax_enable_x64", True)  # 启用 float64 精度
+jax.config.update("jax_debug_nans", True)  # 调试 NaN 值
+jax.config.update("jax_debug_infs", True)  # 调试无穷大值
 current_dir = Path(__file__).resolve().parent
 project_root = current_dir.parent.parent
 sys.path.append(str(project_root))
@@ -34,8 +36,109 @@ class CombustionPINN(PINN):
         super().__init__(*args, **kwargs)
         self.loss_fn_panel = [
             self.loss_pde,
-            self.loss_bc,
+            self.loss_bc_t,
+            self.loss_bc_dt,
             self.loss_irr,
         ]
 
+    def loss_bc_t(self, params, x):
+        T = vmap(self.net_T, in_axes=(None, 0))(params, x)
+        T_IN = self.cfg.T_IN
+        return jnp.mean((T - T_IN) ** 2), {}
     
+    def loss_bc_dt(self, params, x):
+        dT_dx = vmap(self.net_speed, in_axes=(None, 0))(params, x)
+        DTDX_IN = self.cfg.DTDX_IN
+        return jnp.mean((dT_dx - DTDX_IN) ** 2), {}
+    
+
+loss_terms = [
+    "pde",
+    "bc_t",
+    "bc_dt",
+    "irr",
+]
+pinn = CombustionPINN(config=cfg)
+
+init_key = random.PRNGKey(0)
+model_key, sampler_key = random.split(init_key)
+state = create_train_state(
+    pinn.model,
+    model_key,
+    cfg.LR,
+    decay=cfg.DECAY,
+    decay_every=cfg.DECAY_EVERY,
+    xdim=cfg.DIM,
+    optimizer=cfg.OPTIMIZER,
+    end_value=1e-6,
+    time_dependent=False
+)
+
+
+if cfg.RESUME is not None:
+    ckpt = ocp.StandardCheckpointer()
+    restore_state = ckpt.restore(cfg.RESUME)
+    # state load the params from the checkpoint
+    state = state.replace(
+        params=restore_state["params"],
+    )
+    print(f"Restored from {cfg.RESUME}")
+
+
+now = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+log_path = f"{cfg.LOG_DIR}/{cfg.PREFIX}/{now}"
+metrics_tracker = MetricsTracker(log_path)
+ckpt = ocp.StandardCheckpointer()
+sampler = CombustionSampler(
+    cfg.N_SAMPLES,
+    domain=cfg.DOMAIN,
+    key=sampler_key,
+)
+
+start_time = time.time()
+for epoch in range(cfg.EPOCHS):
+    if epoch % 10 == 0:
+        batch = sampler.sample()
+
+    state, (weighted_loss, loss_components, weight_components, aux_vars) = train_step(
+        pinn.loss_fn,
+        state,
+        batch,
+        0.01,  # eps is not used in this case
+    )
+
+    if epoch % 100 == 0:
+        # ckpt.save(log_path + f"/model-{epoch}", state)
+
+        fig, error = evaluate1D(
+            pinn,
+            state.params,
+            jnp.load(f"{cfg.DATA_PATH}/x.npy").reshape(-1, 1),
+            cfg.DATA_PATH,
+            Lc=cfg.Lc,
+            xlim=cfg.DOMAIN[0],
+        )
+        metrics_tracker.register_figure(epoch, fig, "error")
+        plt.close(fig)
+
+        print(f"Epoch {epoch}, Loss: {weighted_loss:.4e}, error: {error:.4e},")
+
+        metrics_tracker.register_scalars(
+            epoch,
+            names=["loss/weighted"]
+            + [f"loss/{term}" for term in loss_terms]
+            + [f"weight/{term}" for term in loss_terms]
+            + ["error"],
+            values=[
+                weighted_loss,
+                *loss_components,
+                *weight_components,
+                error,
+            ]
+        )
+
+        metrics_tracker.flush()
+
+
+end_time = time.time()
+print(f"Training completed in {end_time - start_time:.2f} seconds.")

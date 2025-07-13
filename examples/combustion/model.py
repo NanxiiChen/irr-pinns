@@ -36,11 +36,15 @@ class PINN(nn.Module):
 
     @partial(jit, static_argnums=(0,))
     def net_T(self, params, x):
-        return self.model.apply(params, x)
+        T = self.model.apply(params, x)
+        return T / 1000
+        # T_ADIA = self.cfg.T_ADIA
+        # T_IN = self.cfg.T_IN
+        # return nn.sigmoid(T) * (T_ADIA - T_IN) + T_IN
     
     @partial(jit, static_argnums=(0,))
     def net_sl(self, params, x):
-        return self.model.sl
+        return params["params"]["sl"]
     
     @partial(jit, static_argnums=(0,))
     def net_u(self, params, x):
@@ -54,9 +58,9 @@ class PINN(nn.Module):
     
     @partial(jit, static_argnums=(0,))
     def net_rho(self, params, x):
-        u = self.velocity(params, x)
+        u = self.net_u(params, x)
         RPO_IN = self.cfg.RHO_IN
-        _, sl = self.net_u(params, x)
+        sl = self.net_sl(params, x)
         return RPO_IN * sl / u
     
     @partial(jit, static_argnums=(0,))
@@ -83,18 +87,19 @@ class PINN(nn.Module):
     def net_pde(self, params, x):
         RHO_IN = self.cfg.RHO_IN
         sl = self.net_sl(params, x)
-        T = self.net_T(params, x)
+        # T = self.net_T(params, x)
         CP = self.cfg.CP
         LAMBDA = self.cfg.LAMBDA
         omega = self.net_omega(params, x)
         QF = self.cfg.QF
-        dT_dx = jax.jacrev(self.net_T, argnums=1)(params, x)[0]
-        d2T_dx2 = jax.hessian(self.net_T, argnums=1)(params, x)[0]
+        dT_dx = jax.jacrev(self.net_T, argnums=1)(params, x)[0] / self.cfg.Lc
+        d2T_dx2 = jax.hessian(self.net_T, argnums=1)(params, x)[0] / self.cfg.Lc**2
         pde = (
             RHO_IN * sl * CP * dT_dx
             - LAMBDA * d2T_dx2
             - omega * QF
         )
+        return pde / self.cfg.PRE_SCALE
 
     @partial(jit, static_argnums=(0,))
     def loss_pde(self, params, batch,):
@@ -105,18 +110,18 @@ class PINN(nn.Module):
 
     @partial(jit, static_argnums=(0,))
     def net_speed(self, params, x):
-        dT_dx = jax.jacrev(self.net_T, argnums=1)(params, x)[0]
+        dT_dx = jax.jacrev(self.net_T, argnums=1)(params, x)[0] / self.cfg.Lc
         return dT_dx
 
     @partial(jit, static_argnums=(0,))
     def loss_irr(self, params, batch):
         x = batch
         dT_dx = vmap(self.net_speed, in_axes=(None, 0))(params, x)
-        return jnp.mean(jax.nn.relu(dT_dx)), {}
+        return jnp.mean(jax.nn.relu(-dT_dx)), {}
     
 
     @partial(jit, static_argnums=(0,))
-    def loss_fn(self, params, batch):
+    def loss_fn(self, params, batch, *args, **kwargs):
         losses = []
         grads = []
         aux_vars = {}

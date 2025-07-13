@@ -35,15 +35,15 @@ class CombustionSampler(Sampler):
     
     def sample_bc(self):
         left, right = self.domain[0]
-        left = jnp.array([left,])
-        right = jnp.array([right,])
+        left = jnp.array([[left,],])
+        right = jnp.array([[right,],])
         return left, right
     
     def sample(self, *args, **kwargs):
         left, right = self.sample_bc()
-        pde = self.sample_pde(),
+        pde = self.sample_pde()
         return (
             pde, # for PDE loss
-            left, right,
+            left, left,
             pde # for irreversible loss
         )

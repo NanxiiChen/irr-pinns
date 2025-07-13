@@ -63,10 +63,10 @@ class MLP(nn.Module):
 
     def setup(self):
         self.act_fn = get_activation(self.act_name)
-        self.sl = self.param("sl", constant(0.0), (1,))
 
     @nn.compact
     def __call__(self, x):
+        sl = self.param("sl", constant(0.01), (1,))
 
         if self.fourier_emb:
             x = FourierEmbedding(emb_scale=self.emb_scale, emb_dim=self.emb_dim)(x)
@@ -88,10 +88,10 @@ class ResNet(nn.Module):
 
     def setup(self):
         self.act_fn = get_activation(self.act_name)
-        self.sl = self.param("sl", constant(0.0), (1,))
 
     @nn.compact
     def __call__(self, x):
+        sl = self.param("sl", constant(0.01), (1,))
 
         if self.fourier_emb:
             x = FourierEmbedding(emb_scale=self.emb_scale, emb_dim=self.emb_dim)(x)
@@ -116,11 +116,11 @@ class ModifiedMLP(nn.Module):
 
     def setup(self):
         self.act_fn = get_activation(self.act_name)
-        self.sl = self.param("sl", constant(0.0), (1,))
 
 
     @nn.compact
     def __call__(self, x, t):
+        sl = self.param("sl", constant(0.01), (1,))
 
         if self.fourier_emb:
             x = FourierEmbedding(emb_scale=self.emb_scale, emb_dim=self.emb_dim)(x)

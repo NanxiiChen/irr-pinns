@@ -12,12 +12,14 @@ class Config:
     STAGGER_PERIOD = 25
     EMB_SCALE = 2.0
     EMB_DIM = 64
+    DIM = 1
 
-    DOMAIN = ((0, 1.0),)
+    DOMAIN = ((0.0, 1.0),)
     DATA_PATH = "./data/combustion/"
-    LOG_DIR = "/root/tf-logs"
+    # LOG_DIR = "/root/tf-logs"
+    LOG_DIR = "./logs"
     PREFIX = "combustion/irr"
-    TS = [0.000, 2.0000, 4.000, 5.000]
+    RESUME = None
 
     NUM_LAYERS = 4
     HIDDEN_DIM = 64
@@ -25,6 +27,7 @@ class Config:
 
     ACT_NAME = "tanh"
     ARCH_NAME = "mlp"
+    OPTIMIZER = "adam"
     FOURIER_EMB = False
     IRR = True
 
@@ -43,16 +46,7 @@ class Config:
     DTDX_IN = 1.0e5
     T_IN = 298
     RHO_IN = P_IN / (RG * T_IN)
+    T_ADIA = T_IN + QF * YF_IN / CP
 
     Lc = 1.5e-3  # xc = x / Lc
     PRE_SCALE = 1e6
-
-    CAUSAL_CONFIGS = {
-        "eps": 1e-2,
-        "step_size": 10,
-        "max_last_weight": 0.99,
-        "min_mean_weight": 0.5,
-        "max_eps": 10,
-        "chunks": 24,
-    }
-
