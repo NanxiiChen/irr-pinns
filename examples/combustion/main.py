@@ -1,7 +1,6 @@
 import datetime
 import sys
 import time
-from functools import partial
 from pathlib import Path
 
 import jax
@@ -10,8 +9,7 @@ import matplotlib.pyplot as plt
 import orbax.checkpoint as ocp
 from jax import jit, random, vmap
 jax.config.update("jax_enable_x64", True)  # 启用 float64 精度
-jax.config.update("jax_debug_nans", True)  # 调试 NaN 值
-jax.config.update("jax_debug_infs", True)  # 调试无穷大值
+# jax.config.update("jax_disable_jit", True)
 current_dir = Path(__file__).resolve().parent
 project_root = current_dir.parent.parent
 sys.path.append(str(project_root))
@@ -24,7 +22,6 @@ from examples.combustion import (
 )
 
 from pinn import (
-    CausalWeightor,
     MetricsTracker,
     train_step,
     create_train_state,
@@ -34,31 +31,45 @@ class CombustionPINN(PINN):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.loss_fn_panel = [
-            self.loss_pde,
-            self.loss_bc_t,
-            self.loss_bc_dt,
-            self.loss_irr,
-        ]
 
     def loss_bc_t(self, params, x):
         T = vmap(self.net_T, in_axes=(None, 0))(params, x)
         T_IN = self.cfg.T_IN
-        return jnp.mean((T - T_IN) ** 2), {}
+        return jnp.mean((T - T_IN) ** 2) / self.cfg.T_PRE_SCALE**2, {}
     
-    def loss_bc_dt(self, params, x):
+    def loss_bc_grad(self, params, x):
         dT_dx = vmap(self.net_speed, in_axes=(None, 0))(params, x)
         DTDX_IN = self.cfg.DTDX_IN
-        return jnp.mean((dT_dx - DTDX_IN) ** 2), {}
+        return jnp.mean((dT_dx - DTDX_IN) ** 2) / self.cfg.T_PRE_SCALE**2, {}
     
+    def loss_sl(self, params, x):
+        # sl should be no less than 0
+        sl = self.net_sl(params, x)
+        minv = 0.1
+        maxv = 1.0
+        res = (sl - minv) * (maxv - sl)
+        # res should be no less than 0
+        return jnp.mean(jax.nn.relu(-res)), {}
+    
+    def loss_bc_u_in(self, params, x):
+        u = vmap(self.net_u, in_axes=(None, 0))(params, x)
+        sl = self.net_sl(params, x)
+        return jnp.mean((u - sl) ** 2), {}
+    
+    def loss_bc_t_right(self, params, x):
+        T = vmap(self.net_T, in_axes=(None, 0))(params, x)
+        T_ADIA = self.cfg.T_ADIA
+        return jnp.mean((T - T_ADIA) ** 2) / self.cfg.T_PRE_SCALE**2, {}
 
 loss_terms = [
     "pde",
     "bc_t",
-    "bc_dt",
+    "bc_grad",
+    "bc_t_right",
+    "sl",
     "irr",
 ]
-pinn = CombustionPINN(config=cfg)
+pinn = CombustionPINN(config=cfg, loss_terms=loss_terms)
 
 init_key = random.PRNGKey(0)
 model_key, sampler_key = random.split(init_key)
@@ -93,12 +104,21 @@ sampler = CombustionSampler(
     cfg.N_SAMPLES,
     domain=cfg.DOMAIN,
     key=sampler_key,
+    adaptive_kw={
+        "ratio": cfg.ADAPTIVE_BASE_RATE,
+        "num": cfg.ADAPTIVE_SAMPLES,
+    },
 )
 
 start_time = time.time()
 for epoch in range(cfg.EPOCHS):
     if epoch % 10 == 0:
-        batch = sampler.sample()
+        batch = sampler.sample(
+            fns=[pinn.net_pde,],
+            params=state.params,
+            rar=pinn.cfg.RAR,
+            model=pinn,
+        )
 
     state, (weighted_loss, loss_components, weight_components, aux_vars) = train_step(
         pinn.loss_fn,
@@ -107,8 +127,8 @@ for epoch in range(cfg.EPOCHS):
         0.01,  # eps is not used in this case
     )
 
-    if epoch % 100 == 0:
-        # ckpt.save(log_path + f"/model-{epoch}", state)
+    if epoch % 500 == 0:
+        ckpt.save(log_path + f"/model-{epoch}", state)
 
         fig, error = evaluate1D(
             pinn,
@@ -118,8 +138,9 @@ for epoch in range(cfg.EPOCHS):
             Lc=cfg.Lc,
             xlim=cfg.DOMAIN[0],
         )
-        metrics_tracker.register_figure(epoch, fig, "error")
+        metrics_tracker.register_figure(epoch, fig, "T-error")
         plt.close(fig)
+        
 
         print(f"Epoch {epoch}, Loss: {weighted_loss:.4e}, error: {error:.4e},")
 
@@ -128,16 +149,18 @@ for epoch in range(cfg.EPOCHS):
             names=["loss/weighted"]
             + [f"loss/{term}" for term in loss_terms]
             + [f"weight/{term}" for term in loss_terms]
-            + ["error"],
+            + ["error"] + ["sl"],
             values=[
                 weighted_loss,
                 *loss_components,
                 *weight_components,
                 error,
+                state.params["params"]["sl"][0],
             ]
         )
 
         metrics_tracker.flush()
+        
 
 
 end_time = time.time()

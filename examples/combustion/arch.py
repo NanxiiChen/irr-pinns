@@ -66,7 +66,7 @@ class MLP(nn.Module):
 
     @nn.compact
     def __call__(self, x):
-        sl = self.param("sl", constant(0.01), (1,))
+        sl = self.param("sl", constant(0.1), (1,))
 
         if self.fourier_emb:
             x = FourierEmbedding(emb_scale=self.emb_scale, emb_dim=self.emb_dim)(x)
@@ -119,9 +119,8 @@ class ModifiedMLP(nn.Module):
 
 
     @nn.compact
-    def __call__(self, x, t):
+    def __call__(self, x):
         sl = self.param("sl", constant(0.01), (1,))
-
         if self.fourier_emb:
             x = FourierEmbedding(emb_scale=self.emb_scale, emb_dim=self.emb_dim)(x)
 

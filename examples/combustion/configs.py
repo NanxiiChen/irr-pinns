@@ -3,26 +3,25 @@ import jax.numpy as jnp
 class Config:
     EPOCHS = 100000
     N_SAMPLES = 500
-    ADAPTIVE_SAMPLES = 8000
+    ADAPTIVE_SAMPLES = 250
     ADAPTIVE_BASE_RATE = 10
     NUM_BATCH = 10
-    LR = 5e-4
-    DECAY = 0.9
-    DECAY_EVERY = 200
-    STAGGER_PERIOD = 25
-    EMB_SCALE = 2.0
+    LR = 1e-3
+    DECAY = 0.95
+    DECAY_EVERY = 1000
+    EMB_SCALE = 4
     EMB_DIM = 64
     DIM = 1
 
     DOMAIN = ((0.0, 1.0),)
     DATA_PATH = "./data/combustion/"
-    # LOG_DIR = "/root/tf-logs"
-    LOG_DIR = "./logs"
+    LOG_DIR = "/root/autodl-tmp/tf-logs"
     PREFIX = "combustion/irr"
     RESUME = None
+    # RESUME = "/root/autodl-tmp/tf-logs/combustion/irr/2025-07-13-22-19-34/model-5000/"
 
-    NUM_LAYERS = 4
-    HIDDEN_DIM = 64
+    NUM_LAYERS = 8
+    HIDDEN_DIM = 32
     OUT_DIM = 1
 
     ACT_NAME = "tanh"
@@ -30,6 +29,7 @@ class Config:
     OPTIMIZER = "adam"
     FOURIER_EMB = False
     IRR = True
+    RAR = False
 
     W = 28.97e-3  # gas molecular weight, kg/mol
     LAMBDA = 2.6e-2  # thermal conductivity, W/(m-K)
@@ -50,3 +50,4 @@ class Config:
 
     Lc = 1.5e-3  # xc = x / Lc
     PRE_SCALE = 1e6
+    T_PRE_SCALE = T_ADIA - T_IN

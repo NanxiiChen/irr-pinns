@@ -14,13 +14,12 @@ class PINN(nn.Module):
         self,
         config: object = None,
         causal_weightor = None,
+        **kwargs
     ):
         super().__init__()
-
+        loss_terms = kwargs.get("loss_terms", [])
+        self.loss_fn_panel = [getattr(self, f"loss_{term}") for term in loss_terms]
         self.cfg = config
-
-        self.loss_fn_panel = [
-        ]
         arch = {"mlp": MLP, "modified_mlp": ModifiedMLP}
         self.model = arch[self.cfg.ARCH_NAME](
             act_name=self.cfg.ACT_NAME,
@@ -37,14 +36,18 @@ class PINN(nn.Module):
     @partial(jit, static_argnums=(0,))
     def net_T(self, params, x):
         T = self.model.apply(params, x)
-        return T / 1000
-        # T_ADIA = self.cfg.T_ADIA
-        # T_IN = self.cfg.T_IN
-        # return nn.sigmoid(T) * (T_ADIA - T_IN) + T_IN
+        T_ADIA = self.cfg.T_ADIA
+        T_IN = self.cfg.T_IN
+        # return T * self.cfg.T_PRE_SCALE + T_IN
+        return nn.sigmoid(T) * (T_ADIA - T_IN) + T_IN
     
     @partial(jit, static_argnums=(0,))
     def net_sl(self, params, x):
-        return params["params"]["sl"]
+        sl = params["params"]["sl"]
+        # minv = 1e-3
+        # maxv = 1.0
+        # sl = nn.sigmoid(sl) * (maxv - minv) + minv
+        return sl
     
     @partial(jit, static_argnums=(0,))
     def net_u(self, params, x):
@@ -82,6 +85,15 @@ class PINN(nn.Module):
         rho = self.net_rho(params, x)
         yf = self.net_yf(params, x)
         return A * jnp.exp(-EA / (R * T)) * (rho * yf) ** NU
+    
+    @partial(jit, static_argnums=(0,))
+    def net_p(self, params, x):
+        rho = self.net_rho(params, x)
+        W = self.cfg.W
+        T = self.net_T(params, x)
+        R = self.cfg.R
+        return rho * R * T / W
+
 
     @partial(jit, static_argnums=(0,))
     def net_pde(self, params, x):
@@ -93,13 +105,13 @@ class PINN(nn.Module):
         omega = self.net_omega(params, x)
         QF = self.cfg.QF
         dT_dx = jax.jacrev(self.net_T, argnums=1)(params, x)[0] / self.cfg.Lc
-        d2T_dx2 = jax.hessian(self.net_T, argnums=1)(params, x)[0] / self.cfg.Lc**2
+        d2T_dx2 = jax.hessian(self.net_T, argnums=1)(params, x)[0, 0] / self.cfg.Lc**2
         pde = (
             RHO_IN * sl * CP * dT_dx
             - LAMBDA * d2T_dx2
             - omega * QF
         )
-        return pde / self.cfg.PRE_SCALE
+        return pde / self.cfg.T_PRE_SCALE**2
 
     @partial(jit, static_argnums=(0,))
     def loss_pde(self, params, batch,):
@@ -113,11 +125,12 @@ class PINN(nn.Module):
         dT_dx = jax.jacrev(self.net_T, argnums=1)(params, x)[0] / self.cfg.Lc
         return dT_dx
 
+
     @partial(jit, static_argnums=(0,))
     def loss_irr(self, params, batch):
         x = batch
         dT_dx = vmap(self.net_speed, in_axes=(None, 0))(params, x)
-        return jnp.mean(jax.nn.relu(-dT_dx)), {}
+        return jnp.mean(nn.relu(-dT_dx)) / self.cfg.T_PRE_SCALE, {}
     
 
     @partial(jit, static_argnums=(0,))
@@ -125,6 +138,12 @@ class PINN(nn.Module):
         losses = []
         grads = []
         aux_vars = {}
+        if not len(self.loss_fn_panel) == len(batch):
+            raise ValueError(
+                f"Number of loss functions ({len(self.loss_fn_panel)}) "
+                f"does not match number of batch items ({len(batch)})."
+            )
+
         for idx, (loss_item_fn, batch_item) in enumerate(
             zip(self.loss_fn_panel, batch)
         ):
@@ -143,7 +162,7 @@ class PINN(nn.Module):
         return jnp.sum(losses * weights), (losses, weights, aux_vars)
             
     @partial(jit, static_argnums=(0,))
-    def grad_norm_weights(self, grads: list, eps=1e-8):
+    def grad_norm_weights(self, grads: list, eps=1e-6):
         def tree_norm(pytree):
             squared_sum = sum(jnp.sum(x**2) for x in jax.tree_util.tree_leaves(pytree))
             return jnp.sqrt(squared_sum)
