@@ -114,13 +114,13 @@ class FracturePINN(PINN):
         x, t = batch
         _, disp = vmap(self.net_u, in_axes=(None, 0, 0))(params, x, t)
         ref = vmap(self.ref_sol_bc_top, in_axes=(0, 0))(x, t)
-        top = jnp.mean((disp[:, self.cfg.LOAD_ON] - ref) ** 2)  * self.cfg.DISP_PRE_SCALE**2
+        top = jnp.mean((disp[:, 1] - ref) ** 2)  * self.cfg.DISP_PRE_SCALE**2
         return top, {}
 
     def loss_bc_top_ux(self, params, batch, *args, **kwargs):
         x, t = batch
         _, disp = vmap(self.net_u, in_axes=(None, 0, 0))(params, x, t)
-        top = jnp.mean(disp[:, 1 - self.cfg.LOAD_ON] ** 2)  * self.cfg.DISP_PRE_SCALE**2
+        top = jnp.mean(disp[:, 0] ** 2)  * self.cfg.DISP_PRE_SCALE**2
         return top, {}
 
     def loss_bc_crack(self, params, batch, *args, **kwargs):
