@@ -83,7 +83,6 @@ class CombustionSampler(Sampler):
             pde = self.sample_pde()
         return (
             pde, # for PDE loss
-            left, left, right,
-            pde, 
+            left, left,
             pde # for irreversible loss
         )

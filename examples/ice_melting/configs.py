@@ -21,7 +21,7 @@ class Config:
     PREFIX = "ice-melting/irr"
     TS = [0.000, 2.0000, 4.000, 5.000]
 
-    NUM_LAYERS = 4
+    NUM_LAYERS = 3
     HIDDEN_DIM = 64
     OUT_DIM = 1
 

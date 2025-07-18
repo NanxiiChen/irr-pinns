@@ -38,7 +38,7 @@ def create_train_state(model, rng, lr, **kwargs):
         eta_plus = kwargs.get("eta_plus", 1.2)
         eta_minus = kwargs.get("eta_minus", 0.5)
         step_size_min = kwargs.get("step_size_min", 1e-6)
-        step_size_max = kwargs.get("step_size_max", 50.0)
+        step_size_max = kwargs.get("step_size_max", 1.0)
         
         optimizer = rprop(
             init_step_size=init_step_size,

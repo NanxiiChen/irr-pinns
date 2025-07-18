@@ -20,10 +20,11 @@ from examples.combustion import (
     evaluate1D,
     cfg,
 )
+from examples.combustion.train import train_step
 
 from pinn import (
     MetricsTracker,
-    train_step,
+    # train_step,
     create_train_state,
 )
 
@@ -65,8 +66,8 @@ loss_terms = [
     "pde",
     "bc_t",
     "bc_grad",
-    "bc_t_right",
-    "sl",
+    # "bc_t_right",
+    # "sl",
     "irr",
 ]
 pinn = CombustionPINN(config=cfg, loss_terms=loss_terms)
@@ -112,6 +113,28 @@ sampler = CombustionSampler(
 
 start_time = time.time()
 for epoch in range(cfg.EPOCHS):
+
+    if epoch == cfg.CHANGE_OPT_AT:
+        print(f"Changing optimizer to adam")
+        current_params = state.params
+        state = create_train_state(
+            pinn.model,
+            model_key,
+            cfg.LR,
+            decay=cfg.DECAY,
+            decay_every=cfg.DECAY_EVERY,
+            xdim=cfg.DIM,
+            optimizer="adam",
+            end_value=1e-6,
+            time_dependent=False
+        )
+        state = state.replace(
+            params=current_params,
+        )
+
+
+
+
     if epoch % 10 == 0:
         batch = sampler.sample(
             fns=[pinn.net_pde,],
@@ -120,14 +143,26 @@ for epoch in range(cfg.EPOCHS):
             model=pinn,
         )
 
+    # 交替冻结策略
+    if epoch % 50 < 25:  # 前10个epoch冻结sl，只训练模型参数
+        freeze_model = False
+        freeze_sl = True
+        training_phase = "model"
+    else:  # 后10个epoch冻结模型，只训练sl参数
+        freeze_model = True
+        freeze_sl = False
+        training_phase = "sl"
+
     state, (weighted_loss, loss_components, weight_components, aux_vars) = train_step(
         pinn.loss_fn,
         state,
         batch,
         0.01,  # eps is not used in this case
+        freeze_model=freeze_model,
+        freeze_eigen=freeze_sl,
     )
 
-    if epoch % 500 == 0:
+    if epoch % 100 == 0:
         ckpt.save(log_path + f"/model-{epoch}", state)
 
         fig, error = evaluate1D(

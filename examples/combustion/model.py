@@ -38,8 +38,8 @@ class PINN(nn.Module):
         T = self.model.apply(params, x)
         T_ADIA = self.cfg.T_ADIA
         T_IN = self.cfg.T_IN
-        # return T * (T_ADIA - T_IN) + T_IN
-        return nn.sigmoid(T) * (T_ADIA - T_IN) + T_IN
+        T = nn.tanh(T) / 2 + 0.5  # scale to [0, 1]
+        return T * (T_ADIA - T_IN) + T_IN
     
     @partial(jit, static_argnums=(0,))
     def net_sl(self, params, x):
@@ -158,7 +158,7 @@ class PINN(nn.Module):
         weights = self.grad_norm_weights(grads)
         if not self.cfg.IRR:
             weights = weights.at[-1].set(0.0)
-            weights = weights.at[-2].set(0.0)
+        # weights = weights.at[2].set(3* weights[2])  # PDE loss is more important
 
         return jnp.sum(losses * weights), (losses, weights, aux_vars)
             

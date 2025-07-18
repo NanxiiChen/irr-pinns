@@ -91,7 +91,7 @@ class ResNet(nn.Module):
 
     @nn.compact
     def __call__(self, x):
-        sl = self.param("sl", constant(0.5), (1,))
+        sl = self.param("sl", constant(0.3), (1,))
 
         if self.fourier_emb:
             x = FourierEmbedding(emb_scale=self.emb_scale, emb_dim=self.emb_dim)(x)

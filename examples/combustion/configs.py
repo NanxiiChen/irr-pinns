@@ -3,13 +3,13 @@ import jax.numpy as jnp
 class Config:
     EPOCHS = 100000
     N_SAMPLES = 500
-    ADAPTIVE_SAMPLES = 250
+    ADAPTIVE_SAMPLES = 100
     ADAPTIVE_BASE_RATE = 10
     NUM_BATCH = 10
     LR = 1e-3
     DECAY = 0.95
     DECAY_EVERY = 1000
-    EMB_SCALE = 4
+    EMB_SCALE = 4.0
     EMB_DIM = 64
     DIM = 1
 
@@ -27,7 +27,8 @@ class Config:
     ACT_NAME = "tanh"
     ARCH_NAME = "resnet"
     OPTIMIZER = "rprop"
-    FOURIER_EMB = False
+    CHANGE_OPT_AT = 500
+    FOURIER_EMB = True
     IRR = False
     RAR = False
 
