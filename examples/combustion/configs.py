@@ -16,7 +16,7 @@ class Config:
     DOMAIN = ((0.0, 1.0),)
     DATA_PATH = "./data/combustion/"
     LOG_DIR = "/root/autodl-tmp/tf-logs"
-    PREFIX = "combustion/noirr"
+    PREFIX = "combustion/irr"
     RESUME = None
     # RESUME = "/root/autodl-tmp/tf-logs/combustion/irr/2025-07-13-22-19-34/model-5000/"
 
@@ -29,7 +29,7 @@ class Config:
     OPTIMIZER = "rprop"
     CHANGE_OPT_AT = 500
     FOURIER_EMB = True
-    IRR = False
+    IRR = True
     RAR = False
 
     W = 28.97e-3  # gas molecular weight, kg/mol
