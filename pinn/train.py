@@ -79,6 +79,8 @@ def train_step(loss_fn, state, batch, eps):
     (weighted_loss, (loss_components, weight_components, aux_vars)), grads = (
         jax.value_and_grad(loss_fn, has_aux=True)(params, batch, eps)
     )
+    # handle NaN or Inf values in gradients
+    grads = jax.tree.map(lambda g: jnp.nan_to_num(g, nan=0.0, posinf=0.0, neginf=0.0), grads)
     new_state = state.apply_gradients(grads=grads)
     return new_state, (weighted_loss, loss_components, weight_components, aux_vars)
 
