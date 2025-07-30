@@ -38,8 +38,9 @@ class PINN(nn.Module):
     def net_u(self, params, x, t):
         phi= self.model.apply(params, x, t)
         sigma = self.cfg.SIGMA
-        phi0 = 1/(2*jnp.pi*sigma**2) * \
-            jnp.exp(-jnp.sum(x**2, axis=-1) / (2*sigma**2))
+        # phi0 = 1/(2*jnp.pi*sigma**2) * \
+        #     jnp.exp(-jnp.sum(x**2, axis=-1) / (2*sigma**2))
+        phi0 = jnp.exp(-jnp.sum(x**2, axis=-1) / (sigma**2))
         return phi * t + phi0[None]
 
 
@@ -48,10 +49,16 @@ class PINN(nn.Module):
         # fick's 2nd law of diffusion
         # phi = self.net_u(params, x, t).squeeze(-1)
         dphi_dt = jax.jacrev(self.net_u, argnums=2)(params, x, t)[0,0]
+        nabla_phi = jax.jacrev(self.net_u, argnums=1)(params, x, t)[0]
         hess_phi = jax.hessian(self.net_u, argnums=1)(params, x, t)[0]
         lap_phi = jnp.linalg.trace(hess_phi)
+        # source_term = self.cfg.S * jnp.exp(-jnp.sum(x**2, axis=-1) / (2 * self.cfg.S_SIGMA**2))
+        # source_term = self.cfg.R * phi * (1 - phi / self.cfg.K)
+        norm_x = jnp.linalg.norm(x, axis=-1)
+        alpha = self.cfg.ALPHA
+        velocity = alpha / (norm_x + 1e-8) * jnp.sum(nabla_phi * x, axis=-1)
 
-        pde = dphi_dt - self.cfg.D * lap_phi
+        pde = dphi_dt + velocity - self.cfg.D * lap_phi
         return pde / self.cfg.PDE_PRE_SCALE
 
 

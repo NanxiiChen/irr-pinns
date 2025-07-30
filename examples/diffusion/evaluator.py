@@ -23,12 +23,12 @@ def evaluate2D(pinn, params, mesh, ref_path, ts, **kwargs):
         )
         ax.set(
             xlabel="x", ylabel="y",
-            title=f"t = {tic:.2f}",
+            title=f"t = {tic:.3f}",
             xlim=xlim, ylim=ylim,
             aspect='equal'
         )
 
-        ref_sol = jnp.load(f"{ref_path}/phi-{tic:.2f}.npy").reshape(-1, 1)
+        ref_sol = jnp.load(f"{ref_path}/phi-{tic:.3f}.npy").reshape(-1, 1)
 
         ax = fig.add_subplot(gs[1, idx])
         error_bar = ax.scatter(
@@ -37,7 +37,7 @@ def evaluate2D(pinn, params, mesh, ref_path, ts, **kwargs):
         )
         ax.set(
             xlabel="x", ylabel="y",
-            title=f" t = {tic:.2f}",
+            title=f" t = {tic:.3f}",
             xlim=xlim, ylim=ylim,
             aspect='equal'
         )

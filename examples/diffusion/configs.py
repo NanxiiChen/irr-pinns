@@ -2,7 +2,7 @@ import math
 class Config:
     EPOCHS = 50000
     N_SAMPLES = 15
-    ADAPTIVE_SAMPLES = 2000
+    ADAPTIVE_SAMPLES = 500
     ADAPTIVE_BASE_RATE = 5
     LR = 5e-4
     DECAY = 0.9
@@ -28,8 +28,9 @@ class Config:
     CAUSAL_WEIGHT = False
     IRR = True
 
-    D = 0.1             # diffusion coefficient
-    SIGMA = 0.1         # initial gaussian width
+    D = 0.1
+    ALPHA = 0.5
+    SIGMA = 0.3
 
     Lc = 1.0
     Tc = 1.0

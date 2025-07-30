@@ -39,8 +39,9 @@ class DiffusionPINN(PINN):
     def ref_sol_ic(self, x, t):
         # initial condition
         sigma = cfg.SIGMA
-        ic =  1/(2*jnp.pi*sigma**2) * \
-            jnp.exp(-jnp.sum(x**2, axis=-1) / (2*sigma**2))
+        # ic =  1/(2*jnp.pi*sigma**2) * \
+        #     jnp.exp(-jnp.sum(x**2, axis=-1) / (2*sigma**2))
+        ic = jnp.exp(-jnp.sum(x**2, axis=-1) / (sigma**2))
         return jax.lax.stop_gradient(ic)
 
     
