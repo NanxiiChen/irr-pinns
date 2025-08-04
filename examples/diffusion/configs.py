@@ -18,19 +18,20 @@ class Config:
     RESUME = None
     TS = [0.0, 0.25, 0.50, 0.75, 1.0]
 
-    NUM_LAYERS = 6
+    NUM_LAYERS = 8
     HIDDEN_DIM = 64
     OUT_DIM = 1
 
     ACT_NAME = "swish"
-    ARCH_NAME = "resnet"
+    ARCH_NAME = "mlp"
+    OPTIMIZER = "adam"
     FOURIER_EMB = True
     CAUSAL_WEIGHT = False
     IRR = True
 
     D = 0.1
     ALPHA = 0.5
-    SIGMA = 0.3
+    SIGMA = 0.15
 
     Lc = 1.0
     Tc = 1.0

@@ -36,12 +36,12 @@ class PINN(nn.Module):
 
     @partial(jit, static_argnums=(0,))
     def net_u(self, params, x, t):
-        phi= self.model.apply(params, x, t)
-        sigma = self.cfg.SIGMA
+        phi = self.model.apply(params, x, t)
+        # sigma = self.cfg.SIGMA
         # phi0 = 1/(2*jnp.pi*sigma**2) * \
         #     jnp.exp(-jnp.sum(x**2, axis=-1) / (2*sigma**2))
-        phi0 = jnp.exp(-jnp.sum(x**2, axis=-1) / (sigma**2))
-        return phi * t + phi0[None]
+        # phi0 = jnp.exp(-jnp.sum(x**2, axis=-1) / (sigma**2))
+        return phi
 
 
     @partial(jit, static_argnums=(0,))
@@ -135,6 +135,7 @@ class PINN(nn.Module):
         weights = self.grad_norm_weights(grads)
         if not self.cfg.IRR:
             weights = weights.at[-1].set(0.0)
+        # weights = weights.at[1].set(weights[1] * 5)
 
         return jnp.sum(weights * losses), (losses, weights, aux_vars)
 

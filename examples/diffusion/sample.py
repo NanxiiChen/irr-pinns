@@ -32,18 +32,17 @@ class DiffusionSampler(Sampler):
         )
         return data[:, :-1], data[:, -1:]
 
-
     def sample_ic(self):
         key, self.key = random.split(self.key)
         x = lhs_sampling(
             mins=[self.domain[0][0], self.domain[1][0]],
             maxs=[self.domain[0][1], self.domain[1][1]],
-            num=self.n_samples**2,
+            num=self.n_samples**2*10,
             key=key,
         )
         x_local = lhs_sampling(
-            mins=[-0.25, 0.25], maxs=[0.25, 0.25], 
-            num=self.n_samples**2 * 5, key=self.key
+            mins=[-0.10, -0.10], maxs=[0.10, 0.10],
+            num=self.n_samples**2 * 10, key=self.key
         )
         x = jnp.concatenate([x, x_local], axis=0)
         t = jnp.zeros_like(x[:, 0:1])
@@ -52,7 +51,7 @@ class DiffusionSampler(Sampler):
     def sample_bc(self):
         key, self.key = random.split(self.key)
         xt = lhs_sampling(
-            mins=[self.domain[0][0], self.domain[2][0]],
+            mins=[self.domain[0][0], self.domain[2][0]+0.05],
             maxs=[self.domain[0][1], self.domain[2][1]],
             num=self.n_samples**2,
             key=key,
@@ -71,7 +70,7 @@ class DiffusionSampler(Sampler):
         )
 
         yt = lhs_sampling(
-            mins=[self.domain[1][0], self.domain[2][0]],
+            mins=[self.domain[1][0], self.domain[2][0]+0.05],
             maxs=[self.domain[1][1], self.domain[2][1]],
             num=self.n_samples**2,
             key=key,
@@ -91,15 +90,10 @@ class DiffusionSampler(Sampler):
         data = jnp.concatenate([top, bottom, left, right], axis=0)
         return data[:, :-1], data[:, -1:]
 
-
     def sample(self, *args, **kwargs):
         return (
             self.sample_pde_rar(*args, **kwargs),
-            # self.sample_ic(),
+            self.sample_ic(),
             self.sample_bc(),
             self.sample_pde(),
         )
-
-
-
-

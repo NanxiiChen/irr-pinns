@@ -42,18 +42,20 @@ class DiffusionPINN(PINN):
         # ic =  1/(2*jnp.pi*sigma**2) * \
         #     jnp.exp(-jnp.sum(x**2, axis=-1) / (2*sigma**2))
         ic = jnp.exp(-jnp.sum(x**2, axis=-1) / (sigma**2))
+        ic = jnp.array([ic,])
         return jax.lax.stop_gradient(ic)
 
-    
+
 causal_weightor = CausalWeightor(cfg.CAUSAL_CONFIGS["chunks"], cfg.DOMAIN[-1])
 loss_terms = [
     "pde",
-    # "ic",
+    "ic",
     "bc",
     "irr",
 ]
 
-pinn = DiffusionPINN(config=cfg, causal_weightor=causal_weightor, loss_terms=loss_terms)
+pinn = DiffusionPINN(
+    config=cfg, causal_weightor=causal_weightor, loss_terms=loss_terms)
 
 init_key = random.PRNGKey(0)
 model_key, sampler_key = random.split(init_key)
@@ -64,7 +66,8 @@ state = create_train_state(
     decay=cfg.DECAY,
     decay_every=cfg.DECAY_EVERY,
     xdim=len(cfg.DOMAIN) - 1,
-    end_value=1e-5
+    end_value=1e-5,
+    opt_method=cfg.OPTIMIZER
 )
 
 if cfg.RESUME is not None:
@@ -143,7 +146,7 @@ for epoch in range(cfg.EPOCHS):
                 error,
             ]
         )
-        
+
         if cfg.CAUSAL_WEIGHT and epoch % cfg.SAVE_EVERY == 0:
             fig = pinn.causal_weightor.plot_causal_info(
                 aux_vars["causal_weights"],
@@ -155,7 +158,7 @@ for epoch in range(cfg.EPOCHS):
             plt.close(fig)
 
         metrics_tracker.flush()
-    
+
 
 end_time = time.time()
 print(f"Training completed in {end_time - start_time:.2f} seconds.")
