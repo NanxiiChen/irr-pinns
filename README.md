@@ -58,5 +58,6 @@ We demonstrate the effectiveness of the IRR-PINN framework through four challeng
 ![Fisher](./figures/fisher_error_irr.png)
 ![Fisher](./figures/fisher_error_noirr.png)
 ![Fisher](./figures/fisher-peak.png)
+![Fisher](./figures/fisher-error-log.png)
 ![Fisher](./figures/fisher-irrlosst-log.png)
 ![Fisher](./figures/fisher-irrlossx-log.png)
