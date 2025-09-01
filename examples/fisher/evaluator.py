@@ -4,10 +4,17 @@ from jax import random, vmap
 from matplotlib.gridspec import GridSpec
 
 
-def evaluate1D(pinn, params, data_path, ts, xlim):
+def evaluate1D(pinn, params, data_path, ts, tmax):
     mesh = jnp.load(f"{data_path}/fisher_mesh.npy")
     times = jnp.load(f"{data_path}/fisher_times.npy")
     sol = jnp.load(f"{data_path}/fisher_sol.npy")
+
+    # select the times up to tmax
+    time_mask = times <= tmax
+    times = times[time_mask]
+    sol = sol[time_mask, :]
+
+
     xx, tt = jnp.meshgrid(mesh, times)
 
     # 创建混合3D和2D的子图
@@ -36,6 +43,9 @@ def evaluate1D(pinn, params, data_path, ts, xlim):
     ax3 = fig.add_subplot(gs[1, 1])
 
     error = jnp.mean((sol - pred) ** 2)
+    # sol_log = jnp.log10(sol + 1e-10)
+    # pred_log = jnp.log10(jnp.abs(pred) + 1e-10)
+    # error = jnp.mean(jnp.abs((sol_log - pred_log) / (sol_log + 1e-10)))
 
     # plot the time-snapshots at 0, 0.25, 0.5, 0.75, 1.0 of the final time
     times_indices = times.shape[0] * jnp.array(ts)
@@ -76,6 +86,7 @@ def evaluate1D(pinn, params, data_path, ts, xlim):
     x0_idx = jnp.argmin(jnp.abs(mesh - 0.0))
     ax4.plot(times, sol[:, x0_idx], label="Reference at x=0.0", ls="dashed")
     ax4.set_title("Prediction vs Reference at x=0.0")
+    ax4.set_yscale("log")
     ax4.legend()
 
 

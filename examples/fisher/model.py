@@ -58,6 +58,14 @@ class PINN(nn.Module):
     def loss_pde(self, params, batch, eps, *args, **kwargs):
         x, t = batch
         residual = vmap(self.net_pde, in_axes=(None, 0, 0))(params, x, t)
+        if self.cfg.POINT_WISE_WEIGHT:
+            u = vmap(self.net_u, in_axes=(None, 0, 0))(params, x, t)
+            point_wise_weight = jax.lax.stop_gradient(
+                1 / jnp.abs(u)
+            )
+            # clip to 1~100
+            point_wise_weight = jnp.clip(point_wise_weight, 1.0, 100.0)
+            residual = residual * point_wise_weight
         if not self.cfg.CAUSAL_WEIGHT:
             return jnp.mean(residual**2), {}
         else:
@@ -71,12 +79,21 @@ class PINN(nn.Module):
         # ==> x * u_x <= 0
         # so we penalize the positive part of x * u_x
         u_x = jax.jacrev(self.net_u, argnums=1)(params, x, t)[0]
-        irr = jnp.where(
-            x >= 0,
-            jax.nn.relu(u_x),
-            jax.nn.relu(-u_x)
-        )
-        # irr = jax.nn.relu(x * u_x / (jnp.abs(x) + eps))
+        # irr = jnp.where(
+        #     x >= 0,
+        #     jax.nn.relu(u_x),
+        #     jax.nn.relu(-u_x)
+        # )
+        irr = jax.nn.relu(x * u_x)
+        if self.cfg.POINT_WISE_WEIGHT:
+            u = self.net_u(params, x, t)
+            point_wise_weight = jax.lax.stop_gradient(
+                1 / jnp.abs(u)
+            )
+            # clip to 1~100
+            point_wise_weight = jnp.clip(point_wise_weight, 1.0, 100.0)
+            irr = irr * point_wise_weight
+        
         return irr
     
     @partial(jit, static_argnums=(0,))
@@ -84,6 +101,14 @@ class PINN(nn.Module):
         # u_t <=0, we penalize the positive part of u_t
         u_t = jax.jacrev(self.net_u, argnums=2)(params, x, t)[0]
         irr = jax.nn.relu(u_t)
+        if self.cfg.POINT_WISE_WEIGHT:
+            u = self.net_u(params, x, t)
+            point_wise_weight = jax.lax.stop_gradient(
+                1 / jnp.abs(u)
+            )
+            # clip to 1~100
+            point_wise_weight = jnp.clip(point_wise_weight, 1.0, 100.0)
+            irr = irr * point_wise_weight
         return irr
 
     def loss_ic(self, params, batch, *args, **kwargs):

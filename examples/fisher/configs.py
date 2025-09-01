@@ -3,14 +3,14 @@ import math
 class Config:
     EPOCHS = 50000
     N_SAMPLES = 20
-    ADAPTIVE_SAMPLES = 500
+    ADAPTIVE_SAMPLES = 1000
     ADAPTIVE_BASE_RATE = 5
     LR = 5e-4
     DECAY = 0.9
     DECAY_EVERY = 500
     SAVE_EVERY = 50
     EMB_SCALE = (5.0,)  # emb sacle for (x, t)
-    EMB_DIM = 32
+    EMB_DIM = 128
 
     DOMAIN = [[-2.0, 2.0], [0, 3.0]]
     LOG_DIR = "/root/autodl-tmp/tf-logs"
@@ -20,7 +20,7 @@ class Config:
     TS = [0.0, 0.1, 0.3, 0.7, 1.0]
 
     NUM_LAYERS = 4
-    HIDDEN_DIM = 40
+    HIDDEN_DIM = 100
     OUT_DIM = 1
 
     ACT_NAME = "swish"
@@ -30,6 +30,8 @@ class Config:
     CAUSAL_WEIGHT = False
     IRR = True
     RAR = True
+    POINT_WISE_WEIGHT = False
+
 
     SIGMA = 1.0
     PHI = -1.0
@@ -46,7 +48,7 @@ class Config:
         "step_size": 10,
         "max_last_weight": 0.99,
         "min_mean_weight": 0.5,
-        "max_eps": 1e-3,
+        "max_eps": 1e0,
         "chunks": 24,
     }
 

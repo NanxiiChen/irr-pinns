@@ -5,8 +5,8 @@ import jax.numpy as jnp
 from flax import linen as nn
 from jax.nn.initializers import glorot_normal, normal, constant, zeros, uniform
 from jaxkan.KAN import KAN
-from .embeddings import FourierEmbedding, WaveletEmbedding
-from .activation import Snake, ModifiedReLU
+from pinn.embeddings import FourierEmbedding, WaveletEmbedding
+from pinn.activation import Snake, ModifiedReLU
 
 
 
@@ -90,8 +90,11 @@ class ResNet(nn.Module):
     def __call__(self, x, t):
         if self.fourier_emb:
             if len(self.emb_scale) == 1:
-                x = jnp.concatenate([x, t], axis=-1)
-                x = FourierEmbedding(self.emb_scale[0], self.emb_dim)(x)
+                # x = jnp.concatenate([x, t], axis=-1)
+                # x = FourierEmbedding(self.emb_scale[0], self.emb_dim)(x)
+                t_emb = Dense(t.shape[-1], self.emb_dim)(t)
+                x_emb = FourierEmbedding(self.emb_scale[0], self.emb_dim)(x)
+                x = jnp.concatenate([x_emb, t_emb], axis=-1)
             else:
                 t_emb = FourierEmbedding(self.emb_scale[1], self.emb_dim)(t)
                 x_emb = FourierEmbedding(self.emb_scale[0], self.emb_dim)(x)
@@ -187,14 +190,18 @@ class ModifiedMLP(nn.Module):
     def __call__(self, x, t):
         if self.fourier_emb:
             if len(self.emb_scale) == 1:
-                x = jnp.concatenate([x, t], axis=-1)
-                x = FourierEmbedding(self.emb_scale[0], self.emb_dim)(x)
+                # x = jnp.concatenate([x, t], axis=-1)
+                # x = FourierEmbedding(self.emb_scale[0], self.emb_dim)(x)
+                t_emb = Dense(t.shape[-1], self.emb_dim)(t)
+                x_emb = FourierEmbedding(self.emb_scale[0], self.emb_dim)(x)
+                x = jnp.concatenate([x_emb, t_emb], axis=-1)
             else:
                 t_emb = FourierEmbedding(self.emb_scale[1], self.emb_dim)(t)
                 x_emb = FourierEmbedding(self.emb_scale[0], self.emb_dim)(x)
                 x = jnp.concatenate([x_emb, t_emb], axis=-1)
         else:
             x = jnp.concatenate([x, t], axis=-1)
+
 
         u = Dense(x.shape[-1], self.hidden_dim)(x)
         v = Dense(x.shape[-1], self.hidden_dim)(x)

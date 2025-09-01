@@ -123,7 +123,7 @@ for epoch in range(cfg.EPOCHS):
             state.params,
             cfg.DATA_PATH,
             ts=cfg.TS,
-            xlim=cfg.DOMAIN[0],
+            tmax=cfg.DOMAIN[-1][1]
         )
         metrics_tracker.register_figure(epoch, fig, "fisher-error")
         plt.close(fig)
