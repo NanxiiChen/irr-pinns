@@ -1,59 +1,77 @@
-# IRR-PINNs: Physics-Informed Neural Networks with Irreversibility Constraints
+# Respecting Hidden Irreversibility for Training Physics-Informed Neural Networks
 
 
 ## Overview
 
-This repository implements the IRR-PINNs (Irreversibility-constrained Physics-Informed Neural Networks) framework, a novel approach specifically designed to address physics problems involving irreversible processes. By explicitly incorporating **irreversibility constraints** into the loss function, IRR-PINNs guide the neural network to produce solutions that respect the inherent directionality of physical laws, leading to more accurate and stable predictions. 
+This repository implements a novel framework for training Physics-Informed Neural Networks (PINNs) that explicitly respects **hidden irreversibility constraints** in physical systems. By incorporating irreversibility constraints into the loss function, our approach guides neural networks to produce solutions that respect the inherent directionality of physical laws in temporal or spatial dimensions, leading to more accurate and stable predictions.
 
 ### Irreversibility Constraint Formulation
 
-We form the irreversibility constraint as an additional regularization term in the loss function of PINNs, which penalizes violations of the expected directionality of physical processes.
+We formulate irreversibility constraints as additional regularization terms in the loss function of PINNs, which penalize violations of the expected directionality of physical processes.
 
-For **forward irreversible processes** (where the physical quantity should only increase):
+#### Temporal Irreversibility
+For processes with temporal irreversibility:
+
+**Forward irreversible processes** (where the physical quantity should only increase over time):
 ```python
-loss_irr = mean(ReLU(-dphi/dt))
+loss_irr_t = mean(ReLU(-dphi/dt))
 ```
-For **backward irreversible processes** (where the physical quantity should only decrease):
+
+**Backward irreversible processes** (where the physical quantity should only decrease over time):
 ```python
-loss_irr = mean(ReLU(dphi/dt))
+loss_irr_t = mean(ReLU(dphi/dt))
 ```
+
+#### Spatial Irreversibility
+For processes with spatial irreversibility, such as wave propagation or diffusion-like phenomena, similar constraints can be applied.
+
 where:
-- `dphi/dt` represents the time derivative of the physical quantity $\phi$
+- `dphi/dt` and `dphi/dx` represent temporal and spatial derivatives of the physical quantity $\phi$
 - `ReLU` activation function ensures that only violations of the irreversibility constraint contribute to the loss
+- The specific form depends on the physics of the problem
 
-
-Furthermore, this constraint can be generalized to any inequality-based governing equations. This simple yet powerful formulation significantly improves solution accuracy and stability for irreversible physical processes by enforcing the fundamental directionality constraints inherent in these systems.
+This framework can be generalized to any inequality-based governing equations and multi-dimensional irreversibility constraints. The formulation significantly improves solution accuracy and stability by enforcing fundamental directionality constraints inherent in physical systems.
 
 ## Examples
 
-We demonstrate the effectiveness of the IRR-PINN framework through four challenging applications: corrosion modeling, ice melting simulation, fracture mechanics, and combustion dynamics. Each example showcases how irreversibility constraints lead to more physically consistent and accurate solutions compared to traditional PINN approaches.
+We demonstrate the effectiveness of our framework through five challenging applications that showcase temporal or spatial irreversibility constraints: corrosion modeling, ice melting simulation, fracture mechanics, combustion dynamics, and Fisher's equation. Each example demonstrates how irreversibility constraints lead to more physically consistent and accurate solutions compared to traditional PINN approaches.
 
 ### Corrosion
+
+The corrosion process exhibits temporal irreversibility where the corroded region can only grow over time. Our framework enforces this constraint to ensure physical consistency.
 
 ![Corrosion](./figures/corrosion2d1pit-radius.png)
 ![Corrosion](./figures/corrosion2d1pit-sol.png)
 ![Corrosion](./figures/corrosion2d1pit-error-log.png)
 ![Corrosion](./figures/corrosion2d1pit-irrloss-log.png)
 
-### Ice melting
+### Ice Melting
+
+Ice melting involves irreversible phase transitions where the melting front can only advance, never retreat under constant heating conditions.
 
 ![Ice Melting](./figures/icemelting-radius.png)
 ![Ice Melting](./figures/icemelting-sol.png)
 ![Ice Melting](./figures/icemelting-error-log.png)
+![Ice Melting](./figures/icemelting-irrloss-log.png)
 
+### Fracture Mechanics
 
-### Fracture
+Fracture propagation is inherently irreversible - once a crack forms or grows, it cannot spontaneously heal under the given loading conditions.
 
 ![Fracture](./figures/fracture-t-disp.png)
 ![Fracture](./figures/fracture-sol.png)
 
 ### Combustion
 
+Combustion processes involve irreversible chemical reactions where the reaction progress can only advance in the forward direction.
+
 ![Combustion](./figures/combustion-solution.png)
 ![Combustion](./figures/combustion-error-log.png)
 ![Combustion](./figures/combustion-irrloss-log.png)
 
 ### Fisher Equation
+
+Fisher's equation models population dynamics and traveling wave phenomena, exhibiting both temporal irreversibility (population growth) and spatial irreversibility (wave propagation direction).
 
 ![Fisher](./figures/fisher_error_irr.png)
 ![Fisher](./figures/fisher_error_noirr.png)
