@@ -17,7 +17,7 @@ class Config:
     DIM = 2
     DATA_PATH = "./data/fracture/"
     LOG_DIR = "/root/autodl-tmp/tf-logs"
-    PREFIX = "fracture/irr"
+    PREFIX = "fracture/noirr"
     RESUME = None
     # RESUME = "/root/autodl-tmp/tf-logs/fracture/irr/2025-06-25-23-26-10/model-7000/"
     # TS = [0.0000, 0.3000, 0.7000, 0.7400, 0.7800]
@@ -33,7 +33,7 @@ class Config:
     CHANGE_OPT_AT = 100000
     FOURIER_EMB = False
     CAUSAL_WEIGHT = True
-    IRR = True
+    IRR = False
     POINT_WISE_WEIGHT = False   # 有两种形式，1/(alpha + grad(phi)) 或者 exp(-grad(phi)*alpha)
     RAR = True   # RAR 和PWW实际上是相反作用，RAR强调界面，PWW弱化界面
     DEAD_POINTS_WEIGHT = False
