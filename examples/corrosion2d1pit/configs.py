@@ -17,7 +17,7 @@ class Config:
     DOMAIN = [[-0.5, 0.5], [0, 0.5], [0, 1.0]]
     DATA_PATH = "./data/corrosion-2d-1pit/"
     LOG_DIR = "/root/autodl-tmp/tf-logs"
-    PREFIX = "corrosion/2d-1pit/irr/thickness_10-time_15"
+    PREFIX = "corrosion/2d-1pit/irr"
     # TS = [0.000, 3.582, 9.726, 19.966]
     TS = [0.000, 10.750, 19.966, 29.694]
     # TS = [0.000, 5.118, 10.238, 14.846]

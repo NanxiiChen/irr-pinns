@@ -9,6 +9,10 @@ This repository implements a novel framework for training Physics-Informed Neura
 
 We formulate irreversibility constraints as additional regularization terms in the loss function of PINNs, which penalize violations of the expected directionality of physical processes.
 
+
+A typical violation of irreversibility is shown below:
+![Irreversibility Violation](./figures/corrosion2d1pit-irr-violation.png)
+
 #### Temporal Irreversibility
 For processes with temporal irreversibility:
 
