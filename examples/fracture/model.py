@@ -26,7 +26,8 @@ class PINN(nn.Module):
         super().__init__()
 
         loss_terms = kwargs.get("loss_terms", [])
-        self.loss_fn_panel = [getattr(self, f"loss_{term}") for term in loss_terms]
+        self.loss_fn_panel = [
+            getattr(self, f"loss_{term}") for term in loss_terms]
         self.cfg = config
         arch = {
             "mlp": MLP,
@@ -47,10 +48,10 @@ class PINN(nn.Module):
         self.causal_weightor = causal_weightor
 
         self.loss_fn_stress = partial(self.loss_fn, pde_name="stress")
-        # self.loss_fn_stress_x = partial(self.loss_fn, pde_name="stress_x")
-        # self.loss_fn_stress_y = partial(self.loss_fn, pde_name="stress_y")
+        self.loss_fn_stress_x = partial(self.loss_fn, pde_name="stress_x")
+        self.loss_fn_stress_y = partial(self.loss_fn, pde_name="stress_y")
         self.loss_fn_pf = partial(self.loss_fn, pde_name="pf")
-        # self.loss_fn_energy = partial(self.loss_fn, pde_name="energy")
+        self.loss_fn_energy = partial(self.loss_fn, pde_name="energy")
 
     @partial(jit, static_argnums=(0,))
     def scale_phi(self, phi, beta=1e-3):
@@ -71,9 +72,10 @@ class PINN(nn.Module):
     def net_u(self, params, x, t):
         sol = self.model.apply(params, x, t)
         phi, disp = jnp.split(sol, [1], axis=-1)
-        scale_factor = jnp.array([1.0, 0.5]) * self.cfg.DISP_PRE_SCALE
-        disp = disp / scale_factor
+        # scale_factor = jnp.array([1.0, 0.5]) * self.cfg.DISP_PRE_SCALE
+        # disp = disp / scale_factor
         phi = jnp.tanh(phi) / 2 + 0.5
+        # phi = jnp.exp(-jnp.abs(x[1] / self.cfg.L)) * jnp.exp(-phi**2)
         # phi = self.scale_phi(phi)
         # phi = jnp.exp(-phi**2)
         # phi = jnp.exp(-jnp.abs(phi))
@@ -84,12 +86,13 @@ class PINN(nn.Module):
         # phi = jnp.exp(-jnp.abs(x[1]) / self.cfg.L) * (jnp.tanh(phi) / 2 + 0.5)
 
         # apply hard constraint on displacement
-        # y0, y1 = self.cfg.DOMAIN[1]
-        # ux, uy = jnp.split(disp, 2, axis=-1)
-        # ux = (x[1]-y0)*(x[1]- y1)*ux
-        # uy = (x[1]-y0)*(x[1]- y1)*uy + (x[1]-y0)/(y1-y0)*self.cfg.loading(t)
+        y0, y1 = self.cfg.DOMAIN[1]
+        ux, uy = jnp.split(disp, 2, axis=-1)
+        ux = (x[1]-y0)*(x[1] - y1)*ux*self.cfg.loading(t)
+        uy = (x[1]-y0)*(x[1] - y1)*uy*self.cfg.loading(t) + \
+            (x[1]-y0)/(y1-y0)*self.cfg.loading(t)
         # # uy = (y1 - x[1])/ (y1-y0) * uy + (x[1]-y0) / (y1-y0) * self.cfg.loading(t)
-        # disp = jnp.concatenate((ux, uy), axis=-1)
+        disp = jnp.concatenate((ux, uy), axis=-1)
         return phi, disp
 
     @partial(jit, static_argnums=(0,))
@@ -102,38 +105,40 @@ class PINN(nn.Module):
         return (nabla_disp + jnp.transpose(nabla_disp, axes=(1, 0))) / 2.0
 
     @partial(jit, static_argnums=(0,))
-    def sigma(self, params, x, t):
-        # sigma: (d, d)
-        return 2.0 * self.cfg.MU * self.epsilon(
-            params, x, t
-        ) + self.cfg.LAMBDA * jnp.trace(self.epsilon(params, x, t)) * jnp.eye(
-            self.cfg.DIM
-        )
-
-
-    @partial(jit, static_argnums=(0,))
     def psi(self, params, x, t):
         epsilon = self.epsilon(params, x, t)
         return self.cfg.LAMBDA * jnp.linalg.trace(epsilon) ** 2 / 2 \
             + self.cfg.MU * jnp.linalg.trace(epsilon @ epsilon)
 
     @partial(jit, static_argnums=(0,))
-    def psi_pos(self, params, x, t):
-        epsilon = self.epsilon(params, x, t)
+    def psi_pos(self, epsilon):
         tr_eps = jnp.trace(epsilon)
         k = self.cfg.LAMBDA + self.cfg.MU * 2 / self.cfg.DIM
         dev_eps = epsilon - tr_eps * jnp.eye(self.cfg.DIM) / self.cfg.DIM
         tr_deveps2 = jnp.linalg.trace(dev_eps @ dev_eps)
         return k * jax.nn.relu(tr_eps) ** 2 / 2 + self.cfg.MU * tr_deveps2
 
-
     @partial(jit, static_argnums=(0,))
-    def psi_neg(self, params, x, t):
-        epsilon = self.epsilon(params, x, t)
+    def psi_neg(self, epsilon):
         tr_eps = jnp.trace(epsilon)
         k = self.cfg.LAMBDA + self.cfg.MU * 2 / self.cfg.DIM
         return k * jax.nn.relu(-tr_eps) ** 2 / 2
 
+    @partial(jit, static_argnums=(0,))
+    def sigma(self, params, x, t):
+        phi, disp = self.net_u(params, x, t)
+        phi = phi.squeeze(-1)
+        g_phi = (1 - phi) ** 2 + 1e-6
+        epsilon = self.epsilon(params, x, t)
+        dpsipos_deps = jax.grad(self.psi_pos, argnums=0)(epsilon)
+        dpsineg_deps = jax.grad(self.psi_neg, argnums=0)(epsilon)
+        return g_phi * dpsipos_deps + dpsineg_deps
+        # sigma: (d, d)
+        # return 2.0 * self.cfg.MU * self.epsilon(
+        #     params, x, t
+        # ) + self.cfg.LAMBDA * jnp.trace(self.epsilon(params, x, t)) * jnp.eye(
+        #     self.cfg.DIM
+        # )
 
     # @partial(jit, static_argnums=(0,))
     # def net_stress(self, params, x, t):
@@ -164,12 +169,11 @@ class PINN(nn.Module):
             phi, _ = self.net_u(params, x, t)
             sigma = self.sigma(params, x, t)
             return (1 - phi) ** 2 * sigma
-        
+
         div_damaged_sigma = jax.jacrev(damaged_sigma, argnums=0)(x, t)
         stress = jnp.einsum("ijj->i", div_damaged_sigma)
         # stress = jnp.sqrt(jnp.sum(stress**2, axis=-1))
         return stress / self.cfg.STRESS_PRE_SCALE
-
 
     def net_stress_x(self, params, x, t):
         return self.net_stress(params, x, t)[0] * 10
@@ -180,6 +184,7 @@ class PINN(nn.Module):
     @partial(jit, static_argnums=(0,))
     def _net_pf(self, params, x, t):
         phi, disp = self.net_u(params, x, t)
+        epsilon = self.epsilon(params, x, t)
         phi = phi.squeeze(-1)
         hess_phi_x = jax.hessian(lambda x, t: self.net_u(params, x, t)[0], argnums=0)(
             x, t
@@ -188,15 +193,15 @@ class PINN(nn.Module):
 
         pf = self.cfg.GC * (phi / self.cfg.L - self.cfg.L * lap_phi) - 2 * (
             1 - phi
-        ) * self.psi_pos(params, x, t)
+        ) * self.psi_pos(epsilon)
 
         return pf / self.cfg.PF_PRE_SCALE
-    
+
     def net_pf(self, params, x, t):
         pf = self._net_pf(params, x, t)
         dphi_dt = self.net_speed(params, x, t)
         phi, _ = self.net_u(params, x, t)
-        # weights = 0 when dphi_dt = 0 
+        # weights = 0 when dphi_dt = 0
         # weights = 0 when phi -> 1
         # weights = jax.lax.stop_gradient(
         #     jnp.where(dphi_dt <= 1e-3, 0.0, 1.0)
@@ -207,7 +212,6 @@ class PINN(nn.Module):
         #     jnp.where((jnp.abs(dphi_dt) <= 1e-3) | (jnp.abs(phi-1) < 1e-3), 0.0, 1.0)
         # )
         # pf = weights * pf
-
 
         # # pf > 0 for dphi_dt = 0 and phi < 1, indicates not yet reached critical state
         mask_pos_pf = (jnp.abs(dphi_dt) <= 1e-3) & (jnp.abs(phi-1) > 1e-3)
@@ -224,7 +228,23 @@ class PINN(nn.Module):
             )
         )
         return pf
-    
+
+    # def net_pf(self, params, x, t):
+    #     pf = self._net_pf(params, x, t)
+    #     dphi_dt = self.net_speed(params, x, t)
+    #     # Apply KKT conditions
+    #     pf = jnp.where(
+    #         jnp.abs(dphi_dt) > 1e-3,  # dphi_dt != 0, cracking is growing,
+    #         pf,                      # indicating critical state, pf = 0
+    #         0,                    # dphi_dt = 0, pf can be any value
+    #     )
+    #     return pf
+
+        # return jnp.array([
+        #     jax.nn.relu(-pf), # pf >=0
+        #     dphi_dt*pf,
+        # ])
+
     @partial(jit, static_argnums=(0,))
     def complementarity(self, params, x, t):
         # complementarity condition: $d\phi/dt \cdot pf = 0$
@@ -232,7 +252,8 @@ class PINN(nn.Module):
         dphi_dt = self.net_speed(params, x, t)
         # return dphi_dt * pf # 这种容易形成始终 dphi_dt = 0 的情况，因为 dphi_dt =0 训练起来更简单
         weights = jax.lax.stop_gradient(
-            jnp.where(pf<=self.cfg.PF_EPS, 0.0, pf) # 认为 pf <= 1.0 时，是接近临界开裂状态，对应的 dphi_dt 可以是任意值
+            # 认为 pf <= 1.0 时，是接近临界开裂状态，对应的 dphi_dt 可以是任意值
+            jnp.where(pf <= self.cfg.PF_EPS, 0.0, pf)
         )
         return weights * dphi_dt
 
@@ -260,12 +281,13 @@ class PINN(nn.Module):
     @partial(jit, static_argnums=(0,))
     def net_energy(self, params, x, t):
         phi, _ = self.net_u(params, x, t)
+        eps = self.epsilon(params, x, t)
         phi = phi.squeeze(-1)
         nabla_phi = jax.jacrev(lambda x, t: self.net_u(params, x, t)[0], argnums=0)(
             x, t
         )[0]
         return (
-            (1-phi)*2 * self.psi(params, x, t)
+            (1-phi)*2 * self.psi_pos(eps) + self.psi_neg(eps)
             + self.cfg.GC * (
                 phi**2 / (2 * self.cfg.L)
                 + (self.cfg.L / 2) * jnp.sum(nabla_phi**2, axis=-1)
@@ -295,7 +317,7 @@ class PINN(nn.Module):
         if pde_name == "stress":
             mse_res = jnp.mean(residual**2, axis=0)
             weights = jax.lax.stop_gradient(
-                jnp.sum(mse_res, axis=-1) / (mse_res + 1e-6)
+                jnp.mean(mse_res, axis=-1) / (mse_res + 1e-6)
             )
             # repeat weights to match the length of residual, [batch_size, 2]
             weights = weights[None, :]
@@ -326,9 +348,10 @@ class PINN(nn.Module):
             residual = weights * residual
         else:
             weights = jax.lax.stop_gradient(jnp.ones_like(residual))
-            
 
         if not self.cfg.CAUSAL_WEIGHT:
+            if pde_name == "energy":
+                return jnp.log(jnp.sum(residual)), {"weights": weights}
             return jnp.mean(residual**2), {"weights": weights}
         else:
             # loss, aux_vars = self.causal_weightor.compute_causal_loss(residual, t, eps)
@@ -337,7 +360,7 @@ class PINN(nn.Module):
             causal_data = jnp.stack((t.reshape(-1), phi.reshape(-1),), axis=0)
             # causal_data = jnp.stack((t.reshape(-1),), axis=0)
             loss, aux_vars = self.causal_weightor.compute_causal_loss(
-                residual, 
+                residual,
                 causal_data,
                 eps
             )
@@ -358,12 +381,12 @@ class PINN(nn.Module):
             "t_irr": t,
             "dphi_dt": dphi_dt,
         }
-    
+
     def loss_irr_pf(self, params, batch, *args, **kwargs):
         x, t = batch
         pf = vmap(self._net_pf, in_axes=(None, 0, 0))(params, x, t)
         return jnp.mean(nn.relu(-pf)), {}
-    
+
     def loss_complementarity(self, params, batch, *args, **kwargs):
         x, t = batch
         comp = vmap(self.complementarity, in_axes=(None, 0, 0))(params, x, t)
@@ -415,7 +438,8 @@ class PINN(nn.Module):
     @partial(jit, static_argnums=(0,))
     def grad_norm_weights(self, grads: list, eps=1e-8):
         def tree_norm(pytree):
-            squared_sum = sum(jnp.sum(x**2) for x in jax.tree_util.tree_leaves(pytree))
+            squared_sum = sum(jnp.sum(x**2)
+                              for x in jax.tree_util.tree_leaves(pytree))
             return jnp.sqrt(squared_sum)
 
         grad_norms = jnp.array([tree_norm(grad) for grad in grads])

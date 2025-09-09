@@ -51,7 +51,8 @@ class FracturePINN(PINN):
 
     def ref_sol_ic_phi(self, x, t):
         # phi = jnp.exp(-jnp.abs(x[1] / self.cfg.L)) * (1 - jax.nn.sigmoid(x[0] * 200))
-        phi = jnp.exp(-jnp.abs(x[1] / self.cfg.L)) * jnp.where(x[0] <= 0.0, 1.0, 0.0)
+        phi = jnp.exp(-jnp.abs(x[1] / self.cfg.L)) * \
+            jnp.exp(-jax.nn.relu(x[0] * 100))
         return jax.lax.stop_gradient(phi)
 
     # def loss_ic(self, params, batch, *args, **kwargs):
@@ -114,13 +115,13 @@ class FracturePINN(PINN):
         x, t = batch
         _, disp = vmap(self.net_u, in_axes=(None, 0, 0))(params, x, t)
         ref = vmap(self.ref_sol_bc_top, in_axes=(0, 0))(x, t)
-        top = jnp.mean((disp[:, 1] - ref) ** 2)  * self.cfg.DISP_PRE_SCALE**2
+        top = jnp.mean((disp[:, 1] - ref) ** 2) * self.cfg.DISP_PRE_SCALE**2
         return top, {}
 
     def loss_bc_top_ux(self, params, batch, *args, **kwargs):
         x, t = batch
         _, disp = vmap(self.net_u, in_axes=(None, 0, 0))(params, x, t)
-        top = jnp.mean(disp[:, 0] ** 2)  * self.cfg.DISP_PRE_SCALE**2
+        top = jnp.mean(disp[:, 0] ** 2) * self.cfg.DISP_PRE_SCALE**2
         return top, {}
 
     def loss_bc_crack(self, params, batch, *args, **kwargs):
@@ -155,7 +156,8 @@ class FracturePINN(PINN):
         sigma = vmap(
             self.sigma, in_axes=(None, 0, 0)
         )(params, x, t)
-        traction_vectors = jnp.einsum('ijk,k->ij', sigma, norm_vector) # shape [batch, 2]
+        traction_vectors = jnp.einsum(
+            'ijk,k->ij', sigma, norm_vector)  # shape [batch, 2]
         # res = traction_vectors * (1 - phi)**2  # traction in x direction
         phi = jnp.expand_dims(phi, axis=-1)  # shape [batch, 1]
         res = traction_vectors * (1 - phi)**2
@@ -170,7 +172,6 @@ class FracturePINN(PINN):
             lambda params, x, t: energy_fn(params, x, t), in_axes=(None, 0, 0)
         )(params, x, t)
         return jnp.mean(pf_energy**2), {}
-    
 
 
 # causal_first_point = 0.3
@@ -179,7 +180,6 @@ class FracturePINN(PINN):
 # )
 # # insert 0.0 at the beginning of the bins
 # causal_bins = jnp.insert(causal_bins_tail, 0, 0.0)
-
 
 
 # bins = jnp.array([0.0, 0.2, 0.4, 0.6, 0.8, 0.9, 0.94, 0.98, 1.0])
@@ -195,19 +195,20 @@ loss_terms = [
     # "ic_ux",
     # "ic_uy",
     "bc_bottom_phi",
-    "bc_bottom_ux",
-    "bc_bottom_uy",
+    # "bc_bottom_ux",
+    # "bc_bottom_uy",
     "bc_top_phi",
-    "bc_top_ux",
-    "bc_top_uy",
+    # "bc_top_ux",
+    # "bc_top_uy",
     "bc_crack",
-    "bc_sigmax",
+    # "bc_sigmax",
     "irr",
     # "complementarity"
     # "irr_pf",
 ]
 
-pinn = FracturePINN(config=cfg, causal_weightor=causal_weightor, loss_terms=loss_terms)
+pinn = FracturePINN(
+    config=cfg, causal_weightor=causal_weightor, loss_terms=loss_terms)
 
 init_key = random.PRNGKey(0)
 model_key, sampler_key = random.split(init_key)
@@ -248,7 +249,7 @@ sampler = FractureSampler(
 )
 
 stagger = StaggerSwitch(
-    pde_names=["stress", "pf"], 
+    pde_names=["stress", "pf"],
     stagger_period=cfg.STAGGER_PERIOD
 )
 
@@ -275,10 +276,10 @@ for epoch in range(cfg.EPOCHS):
     # if epoch % cfg.STAGGER_PERIOD == 0:
     if epoch % 10 == 0:
         batch = sampler.sample(
-            fns=[pinn.psi_pos],
+            fns=[pinn.psi],
             # fns=[getattr(pinn, f"net_{pde_name}"),],
             params=state.params,
-            rar=pinn.cfg.RAR if pde_name == "pf" else False,
+            rar=pinn.cfg.RAR,
             model=pinn
         )
 
@@ -301,7 +302,7 @@ for epoch in range(cfg.EPOCHS):
     if epoch % cfg.STAGGER_PERIOD == 0:
 
         # save the model
-        if epoch % 200 == 0:
+        if epoch % 500 == 0:
             ckpt.save(log_path + f"/model-{epoch}", state)
 
             fig, error = evaluate2D(
@@ -319,7 +320,8 @@ for epoch in range(cfg.EPOCHS):
             metrics_tracker.register_figure(epoch, fig, "error")
             plt.close(fig)
 
-        print(f"Epoch: {epoch}, " f"Loss_{pde_name}: {loss_components[0]:.2e}, ")
+        print(
+            f"Epoch: {epoch}, " f"Loss_{pde_name}: {loss_components[0]:.2e}, ")
 
         # replace `pde` with `pde_name` in `loss_terms`
         loss_terms_epoch = loss_terms.copy()
@@ -342,7 +344,8 @@ for epoch in range(cfg.EPOCHS):
                 aux_vars["loss_chunks"],
                 cfg.CAUSAL_CONFIGS[f"{pde_name}_eps"],
             )
-            fig.suptitle(f"{pde_name}_eps: {cfg.CAUSAL_CONFIGS[f'{pde_name}_eps']:.2e}")
+            fig.suptitle(
+                f"{pde_name}_eps: {cfg.CAUSAL_CONFIGS[f'{pde_name}_eps']:.2e}")
             metrics_tracker.register_figure(epoch, fig, "causal_info")
             plt.close(fig)
 

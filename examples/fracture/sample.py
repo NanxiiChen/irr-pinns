@@ -103,7 +103,8 @@ class FractureSampler(Sampler):
             # if fn.__name__.endswith("pf"):
             model = kwargs.get("model", None)
             if model is not None:
-                phi, _ = model.net_u(params, x, t)
+                # phi, _ = model.net_u(params, x, t)
+                phi, _ = vmap(model.net_u, in_axes=(None, 0, 0))(params, x, t)
                 # flatten phi to 1D
                 phi = phi.squeeze(axis=-1)
                 # let weight be zero when phi is 1
@@ -213,9 +214,9 @@ class FractureSampler(Sampler):
         return [
             pde,
             ic,
-            bc["bottom"],bc["bottom"],bc["bottom"],
-            bc["top"],bc["top"],bc["top"],
+            bc["bottom"],
+            bc["top"],
             bc["crack"],
-            bc["vertical"],
+            # bc["vertical"],
             pde, 
         ]
