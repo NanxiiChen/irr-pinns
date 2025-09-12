@@ -78,20 +78,11 @@ class PINN(nn.Module):
         # disp = disp / scale_factor
         # phi = jnp.tanh(phi) / 2 + 0.5
         phi = jax.nn.sigmoid(phi)
-        # phi = jnp.exp(-jnp.abs(x[1] / self.cfg.L)) * jnp.exp(-phi**2)
-        # phi = self.scale_phi(phi)
-        # phi = jnp.exp(-phi**2)
-        # phi = jnp.exp(-jnp.abs(phi))
-        # phi = jnp.exp(-jnp.abs(phi)*10)
-        # phi = jnp.exp(-jax.nn.sigmoid(-phi*10)*10)
-        # phi = jnp.exp(-jax.nn.softplus(-phi))
-
-        # phi = jnp.exp(-jnp.abs(x[1]) / self.cfg.L) * (jnp.tanh(phi) / 2 + 0.5)
 
         # apply hard constraint on displacement
         y0, y1 = self.cfg.DOMAIN[1]
         ux, uy = jnp.split(disp, 2, axis=-1)
-        ux = (x[1]-y0)*(x[1] - y1)*ux*self.cfg.loading(t)
+        ux = (x[1]-y0)*(x[1] - y1)*ux*self.cfg.loading(t) / 3.0
         uy = (x[1]-y0)*(x[1] - y1)*uy*self.cfg.loading(t) + \
             (x[1]-y0)/(y1-y0)*self.cfg.loading(t)
         # # uy = (y1 - x[1])/ (y1-y0) * uy + (x[1]-y0) / (y1-y0) * self.cfg.loading(t)
@@ -334,8 +325,8 @@ class PINN(nn.Module):
             nabla_phi = vmap(
                 lambda params, x, t: nabla_phi_fn(params, x, t)[0], in_axes=(None, 0, 0)
             )(params, x, t)
-            grad_phi = jnp.sum(nabla_phi**2, axis=-1)
-            # grad_phi = jnp.linalg.norm(nabla_phi, ord=2, axis=-1)
+            # grad_phi = jnp.sum(nabla_phi**2, axis=-1)
+            grad_phi = jnp.linalg.norm(nabla_phi, ord=2, axis=-1)
             weights = jax.lax.stop_gradient(1 / (1.0 + grad_phi))
             # weights = jax.lax.stop_gradient(jnp.exp(-grad_phi))
             residual = weights * residual
@@ -360,8 +351,8 @@ class PINN(nn.Module):
             # loss, aux_vars = self.causal_weightor.compute_causal_loss(residual, t, eps)
             phi, _ = vmap(self.net_u, in_axes=(None, 0, 0))(params, x, t)
             phi = jax.lax.stop_gradient(phi)
+            # causal_data = jnp.stack((t.reshape(-1), phi.reshape(-1)), axis=0)
             causal_data = jnp.stack((t.reshape(-1),), axis=0)
-            # causal_data = jnp.stack((t.reshape(-1),), axis=0)
             loss, aux_vars = self.causal_weightor.compute_causal_loss(
                 residual,
                 causal_data,

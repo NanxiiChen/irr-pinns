@@ -276,21 +276,16 @@ class ModifiedMLP(nn.Module):
             x = x * u + (1 - x) * v
 
         x = self.act_fn(Dense(x.shape[-1], self.hidden_dim*3)(x))
-        phi = MLPBlock(
-            hidden_dim=self.hidden_dim,
-            num_layers=2,
-            act_fn=self.act_fn,
-            out_dim=1
-        )(x)
+        phi = Dense(x.shape[-1], 1)(x)
         ux = MLPBlock(
             hidden_dim=self.hidden_dim,
-            num_layers=2,
+            num_layers=self.num_layers//2,
             act_fn=self.act_fn,
             out_dim=1
         )(x)
         uy = MLPBlock(
             hidden_dim=self.hidden_dim,
-            num_layers=2,
+            num_layers=self.num_layers//2,
             act_fn=self.act_fn,
             out_dim=1
         )(x)
@@ -433,20 +428,30 @@ class SplitModifiedMLP(nn.Module):
 
     @nn.compact
     def __call__(self, x, t):
+        
+        xt = jnp.concatenate([x, t], axis=-1)
+        
+        def phi_fn(x, t):
+            xt = jnp.concatenate([x, t], axis=-1)
+            phi_feat = ModifiedMLPBlock(
+                hidden_dim=self.hidden_dim,
+                num_layers=self.num_layers,
+                act_fn=self.act_fn,
+                out_dim=1
+            )(xt)
+            return jax.nn.sigmoid(phi_feat)
+        
+        phi = phi_fn(x, t)
+        dphi_dx = jax.jacrev(phi_fn, argnums=0)(x, t)[0]
+        dphi_dx = jax.lax.stop_gradient(dphi_dx)
+        merged_feat = jnp.concatenate([xt, dphi_dx], axis=-1)
 
-        x = jnp.concatenate([x, t], axis=-1)
-        phi = ModifiedMLPBlock(
-            hidden_dim=self.hidden_dim,
-            num_layers=self.num_layers,
-            act_fn=self.act_fn,
-            out_dim=1
-        )(x)
         disp = ModifiedMLPBlock(
             hidden_dim=self.hidden_dim,
             num_layers=self.num_layers,
             act_fn=self.act_fn,
             out_dim=self.hidden_dim*2
-        )(x)
+        )(merged_feat)
         ux = Dense(disp.shape[-1], 1)(disp)
         uy = Dense(disp.shape[-1], 1)(disp)
         return jnp.concatenate([phi, ux, uy], axis=-1)

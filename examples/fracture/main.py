@@ -20,6 +20,7 @@ from examples.fracture import (
     evaluate2D,
     cfg,
 )
+# from examples.fracture.train import train_step
 from pinn import (
     CausalWeightor,
     MetricsTracker,
@@ -289,6 +290,8 @@ for epoch in range(cfg.EPOCHS):
         state,
         batch,
         cfg.CAUSAL_CONFIGS[f"{pde_name}_eps"],
+        # freeze=cfg.FREEZE,
+        # tag="disp" if pde_name == "pf" else "phi", # freeze displacement when training phase field, and vice versa
     )
     if cfg.CAUSAL_WEIGHT:
         new_eps = causal_weightor.update_causal_eps(
