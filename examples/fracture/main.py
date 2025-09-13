@@ -196,10 +196,10 @@ loss_terms = [
     "ic_phi",
     # "ic_ux",
     # "ic_uy",
-    # "bc_bottom_phi",
+    "bc_bottom_phi",
     # "bc_bottom_ux",
     # "bc_bottom_uy",
-    # "bc_top_phi",
+    "bc_top_phi",
     # "bc_top_ux",
     # "bc_top_uy",
     "bc_crack",
@@ -260,14 +260,14 @@ start_time = time.time()
 for epoch in range(cfg.EPOCHS):
 
     if epoch == cfg.CHANGE_OPT_AT:
-        print("Change optimizer to soap")
+        print("Change optimizer to rprop")
         current_params = state.params
         state = create_train_state(
             pinn.model,
             model_key,
             cfg.LR,
             xdim=cfg.DIM,
-            optimizer="soap",
+            optimizer="rprop",
         )
         state = state.replace(params=current_params)
 

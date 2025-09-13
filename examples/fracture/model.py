@@ -226,18 +226,18 @@ class PINN(nn.Module):
     # def net_pf(self, params, x, t):
     #     pf = self._net_pf(params, x, t)
     #     dphi_dt = self.net_speed(params, x, t)
-    #     # # Apply KKT conditions
-    #     # pf = jnp.where(
-    #     #     jnp.abs(dphi_dt) > 1e-3,  # dphi_dt != 0, cracking is growing,
-    #     #     pf,                      # indicating critical state, pf = 0
-    #     #     0,                    # dphi_dt = 0, pf can be any value
-    #     # )
-    #     # return pf
+    #     # Apply KKT conditions
+    #     pf = jnp.where(
+    #         jnp.abs(dphi_dt) > 1e-3,  # dphi_dt != 0, cracking is growing,
+    #         pf,                      # indicating critical state, pf = 0
+    #         0,                    # dphi_dt = 0, pf can be any value
+    #     )
+    #     return pf
 
-    #     return jnp.array([
-    #         jax.nn.relu(-pf), # pf >=0
-    #         dphi_dt*pf,
-    #     ])
+        # return jnp.array([
+        #     jax.nn.relu(-pf), # pf >=0
+        #     dphi_dt*pf,
+        # ])
 
     @partial(jit, static_argnums=(0,))
     def complementarity(self, params, x, t):
@@ -308,14 +308,14 @@ class PINN(nn.Module):
 
         fn = getattr(self, f"net_{pde_name}")
         residual = vmap(fn, in_axes=(None, 0, 0))(params, x, t)
-        if pde_name == "stress" or pde_name == "pf":
-            mse_res = jnp.mean(residual**2, axis=0)
-            weights = jax.lax.stop_gradient(
-                jnp.mean(mse_res, axis=-1) / (mse_res + 1e-6)
-            )
-            # repeat weights to match the length of residual, [batch_size, 2]
-            weights = weights[None, :]
-            residual = jnp.sqrt(jnp.sum(residual**2 * weights, axis=-1))
+        # if pde_name == "stress" or pde_name == "pf":
+        #     mse_res = jnp.mean(residual**2, axis=0)
+        #     weights = jax.lax.stop_gradient(
+        #         jnp.mean(mse_res, axis=-1) / (mse_res + 1e-6)
+        #     )
+        #     # repeat weights to match the length of residual, [batch_size, 2]
+        #     weights = weights[None, :]
+        #     residual = jnp.sqrt(jnp.sum(residual**2 * weights, axis=-1))
 
         # point-wise weight
         if self.cfg.POINT_WISE_WEIGHT:
@@ -423,7 +423,7 @@ class PINN(nn.Module):
         weights = self.grad_norm_weights(grads)
         if not self.cfg.IRR:
             weights = weights.at[-1].set(0.0)
-        weights = weights.at[-4].set(weights[-4] * 5)
+        # weights = weights.at[-4].set(weights[-4] * 5)
 
         # weights = weights.at[1].set(weights[1] * 5)
 

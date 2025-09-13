@@ -30,7 +30,7 @@ class Config:
     ACT_NAME = "swish" # tanh, swish, snake...
     ARCH_NAME = "modified_mlp" # mlp, modified_mlp, moe
     OPTIMIZER = "adam"
-    CHANGE_OPT_AT = 100000
+    CHANGE_OPT_AT = 1000000
     FOURIER_EMB = False
     CAUSAL_WEIGHT = True
     IRR = True
@@ -63,7 +63,7 @@ class Config:
         "energy_eps": 1e-2,
         "step_size": 5,
         "max_last_weight": 0.99,
-        "min_mean_weight": 0.1,
+        "min_mean_weight": 0.3,
         "max_eps": 50,
         "chunks": 10,
     }
