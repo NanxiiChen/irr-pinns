@@ -204,8 +204,8 @@ causal_weightor = CausalWeightor(
 loss_terms = [
     "pde",
     "ic_phi",
-    # "ic_ux",
-    # "ic_uy",
+    "ic_ux",
+    "ic_uy",
     "bc_bottom_phi",
     # "bc_bottom_ux",
     # "bc_bottom_uy",
@@ -262,7 +262,7 @@ sampler = FractureSampler(
 )
 
 stagger = StaggerSwitch(
-    pde_names=["stress_y", "stress_x", "pf"],
+    pde_names=["stress", "pf"],
     stagger_period=cfg.STAGGER_PERIOD
 )
 
@@ -289,8 +289,8 @@ for epoch in range(cfg.EPOCHS):
     if epoch % cfg.STAGGER_PERIOD == 0:
     # if epoch % 10 == 0:
         batch = sampler.sample(
-            # fns=[pinn.psi],
-            fns=[getattr(pinn, f"net_{pde_name}"),],
+            fns=[pinn.psi],
+            # fns=[getattr(pinn, f"net_{pde_name}"),],
             params=state.params,
             rar=pinn.cfg.RAR,
             model=pinn

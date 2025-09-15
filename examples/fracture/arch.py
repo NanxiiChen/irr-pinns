@@ -425,29 +425,49 @@ class SplitModifiedMLP(nn.Module):
     def setup(self):
         self.act_fn = get_activation(self.act_name)
 
-
     @nn.compact
     def __call__(self, x, t):
+        
+        xt = jnp.concatenate([x, t], axis=-1)
+        
+        def phi_fn(x, t):
+            xt = jnp.concatenate([x, t], axis=-1)
+            phi_feat = ModifiedMLPBlock(
+                hidden_dim=self.hidden_dim,
+                num_layers=self.num_layers,
+                act_fn=self.act_fn,
+                out_dim=1
+            )(xt)
+            return jax.nn.sigmoid(phi_feat)
+        
+        phi = phi_fn(x, t)
+        nabla_phi = jax.jacrev(phi_fn, argnums=0)(x, t)[0]
+        # standardize nabla_phi to unit vector
+        nabla_phi = nabla_phi / (jnp.linalg.norm(nabla_phi, axis=-1, keepdims=True) + 1e-8)
+        nabla_phi = jax.lax.stop_gradient(nabla_phi)
+        # dphi_dx = nabla_phi[0]
+        dphi_dy = nabla_phi[1]
 
-        x = jnp.concatenate([x, t], axis=-1)
-        phi = ModifiedMLPBlock(
-            hidden_dim=self.hidden_dim,
-            num_layers=self.num_layers,
+        ux = MLPBlock(
+            hidden_dim=self.hidden_dim//2,
+            num_layers=self.num_layers//2,
             act_fn=self.act_fn,
             out_dim=1
-        )(x)
-        fourier_feat = FourierEmbedding(emb_scale=self.emb_scale[0], emb_dim=self.emb_dim)(
-            jnp.concatenate([x, t], axis=-1)
-        )
-        disp = ModifiedMLPBlock(
-            hidden_dim=self.hidden_dim,
-            num_layers=self.num_layers,
+        )(xt)
+        uy_branch_1 = MLPBlock(
+            hidden_dim=self.hidden_dim//2,
+            num_layers=self.num_layers//2,
             act_fn=self.act_fn,
-            out_dim=self.hidden_dim
-        )(fourier_feat)
-        disp = self.act_fn(disp)
-        ux = Dense(disp.shape[-1], 1)(disp)
-        uy = Dense(disp.shape[-1], 1)(disp)
+            out_dim=1
+        )(xt)
+        uy_branch_2 = MLPBlock(
+            hidden_dim=self.hidden_dim//2,
+            num_layers=self.num_layers//2,
+            act_fn=self.act_fn,
+            out_dim=1
+        )(xt)
+        uy = uy_branch_1 * dphi_dy + uy_branch_2 * (1 - dphi_dy)
+
         return jnp.concatenate([phi, ux, uy], axis=-1)
 
     
