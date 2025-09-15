@@ -33,14 +33,14 @@ class FractureSampler(Sampler):
             key,
         )
 
-        data_crack = lhs_sampling(
-            [self.domain[0][0], -0.1, self.domain[2][0]],
-            [self.domain[0][1], 0.1, self.domain[2][1]],
-            self.n_samples**3,
-            key,
-        )
+        # data_crack = lhs_sampling(
+        #     [0.0, -0.1, 0.5],
+        #     [0.5, 0.1, self.domain[2][1]],
+        #     self.n_samples**3,
+        #     key,
+        # )
 
-        data = jnp.concatenate([data, data_crack], axis=0)
+        # data = jnp.concatenate([data, data_crack], axis=0)
 
         return data[:, :-1], data[:, -1:]
 

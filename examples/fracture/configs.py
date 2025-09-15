@@ -35,13 +35,13 @@ class Config:
     CAUSAL_WEIGHT = False
     IRR = True
     POINT_WISE_WEIGHT = False   # 有两种形式，1/(alpha + grad(phi)) 或者 exp(-grad(phi)*alpha)
-    RAR = False   # RAR 和PWW实际上是相反作用，RAR强调界面，PWW弱化界面
+    RAR = True   # RAR 和PWW实际上是相反作用，RAR强调界面，PWW弱化界面
     DEAD_POINTS_WEIGHT = False
     FREEZE = False
 
     GC = 2.7
     L = 0.024
-    UR = 0.00525
+    UR = 0.0052
     LOAD_ON_DIR = "y"
     LOAD_ON = 1 if LOAD_ON_DIR == "y" else 0
     LAMBDA = 121.1538e3

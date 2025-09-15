@@ -428,26 +428,27 @@ class SplitModifiedMLP(nn.Module):
 
     @nn.compact
     def __call__(self, x, t):
-        
+
         x = jnp.concatenate([x, t], axis=-1)
         phi = ModifiedMLPBlock(
             hidden_dim=self.hidden_dim,
             num_layers=self.num_layers,
             act_fn=self.act_fn,
-            out_dim=1,
-            name="phi_block"
+            out_dim=1
         )(x)
-        phi = jax.nn.sigmoid(phi)
+        fourier_feat = FourierEmbedding(emb_scale=self.emb_scale[0], emb_dim=self.emb_dim)(
+            jnp.concatenate([x, t], axis=-1)
+        )
         disp = ModifiedMLPBlock(
             hidden_dim=self.hidden_dim,
             num_layers=self.num_layers,
             act_fn=self.act_fn,
-            out_dim=self.out_dim - 1,
-            name="disp_block"
-        )(x)
+            out_dim=self.hidden_dim
+        )(fourier_feat)
         disp = self.act_fn(disp)
-        ux = Dense(disp.shape[-1], 1, name="disp_ux_out")(disp)
-        uy = Dense(disp.shape[-1], 1, name="disp_uy_out")(disp)
+        ux = Dense(disp.shape[-1], 1)(disp)
+        uy = Dense(disp.shape[-1], 1)(disp)
         return jnp.concatenate([phi, ux, uy], axis=-1)
 
+    
     
