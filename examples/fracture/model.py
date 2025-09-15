@@ -76,14 +76,14 @@ class PINN(nn.Module):
         phi, disp = jnp.split(sol, [1], axis=-1)
         # scale_factor = jnp.array([1.0, 0.5]) * self.cfg.DISP_PRE_SCALE
         # disp = disp / scale_factor
-        # phi = jnp.tanh(phi) / 2 + 0.5
+        phi = jnp.tanh(phi) / 2 + 0.5
         # phi = jnp.exp(-phi**2)
-        phi = jax.nn.sigmoid(phi)
+        # phi = jax.nn.sigmoid(phi)
 
         # apply hard constraint on displacement
         y0, y1 = self.cfg.DOMAIN[1]
         ux, uy = jnp.split(disp, 2, axis=-1)
-        ux = (x[1]-y0)*(x[1] - y1)*ux*self.cfg.loading(t) / 3.0
+        ux = (x[1]-y0)*(x[1] - y1)*ux*self.cfg.loading(t)
         uy = (x[1]-y0)*(x[1] - y1)*uy*self.cfg.loading(t) + \
             (x[1]-y0)/(y1-y0)*self.cfg.loading(t)
         # # uy = (y1 - x[1])/ (y1-y0) * uy + (x[1]-y0) / (y1-y0) * self.cfg.loading(t)
@@ -235,10 +235,13 @@ class PINN(nn.Module):
         # )
         # return pf
 
-        return jnp.array([
-            jax.nn.relu(-pf), # pf >=0
-            jax.lax.stop_gradient(dphi_dt)*pf,
-        ])
+        # return jnp.array([
+        #     jax.nn.relu(-pf), # pf >=0
+        #     jax.lax.stop_gradient(dphi_dt)*pf,
+        # ])
+        return jnp.sqrt(
+            jax.nn.relu(-pf)**2 + (jax.lax.stop_gradient(dphi_dt)*pf)**2
+        )
 
     @partial(jit, static_argnums=(0,))
     def complementarity(self, params, x, t):
@@ -309,14 +312,14 @@ class PINN(nn.Module):
 
         fn = getattr(self, f"net_{pde_name}")
         residual = vmap(fn, in_axes=(None, 0, 0))(params, x, t)
-        if pde_name == "stress" or pde_name == "pf":
-            mse_res = jnp.mean(residual**2, axis=0)
-            weights = jax.lax.stop_gradient(
-                jnp.mean(mse_res, axis=-1) / (mse_res + 1e-6)
-            )
-            # repeat weights to match the length of residual, [batch_size, 2]
-            weights = weights[None, :]
-            residual = jnp.sqrt(jnp.sum(residual**2 * weights, axis=-1))
+        # if pde_name == "stress" or pde_name == "pf":
+        #     mse_res = jnp.mean(residual**2, axis=0)
+        #     weights = jax.lax.stop_gradient(
+        #         jnp.mean(mse_res, axis=-1) / (mse_res + 1e-6)
+        #     )
+        #     # repeat weights to match the length of residual, [batch_size, 2]
+        #     weights = weights[None, :]
+        #     residual = jnp.sqrt(jnp.sum(residual**2 * weights, axis=-1))
 
         # point-wise weight
         if self.cfg.POINT_WISE_WEIGHT and pde_name == "stress":

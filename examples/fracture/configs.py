@@ -32,10 +32,10 @@ class Config:
     OPTIMIZER = "adam"
     CHANGE_OPT_AT = 1000000
     FOURIER_EMB = False
-    CAUSAL_WEIGHT = True
+    CAUSAL_WEIGHT = False
     IRR = True
     POINT_WISE_WEIGHT = False   # 有两种形式，1/(alpha + grad(phi)) 或者 exp(-grad(phi)*alpha)
-    RAR = True   # RAR 和PWW实际上是相反作用，RAR强调界面，PWW弱化界面
+    RAR = False   # RAR 和PWW实际上是相反作用，RAR强调界面，PWW弱化界面
     DEAD_POINTS_WEIGHT = False
     FREEZE = False
 

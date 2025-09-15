@@ -149,7 +149,7 @@ class FracturePINN(PINN):
         )(params, x, t)
         return jnp.mean(dphi_dx**2), {}
 
-    def loss_bc_sigmax(self, params, batch, *args, **kwargs):
+    def loss_bc_free_disp(self, params, batch, *args, **kwargs):
         x, t = batch
         # norm_vector = jnp.array([1.0, 0.0])
         phi = vmap(
@@ -163,6 +163,19 @@ class FracturePINN(PINN):
         res1 = (1-phi) ** 2 * sigma_xx
         res2 = (1-phi) ** 2 * sigma_xy
         return jnp.mean(res1**2) + jnp.mean(res2**2), {}
+    
+    def loss_bc_free_phi(self, params, batch, *args, **kwargs):
+        x, t = batch
+
+        def phi_fn(params, x, t):
+            return self.net_u(params, x, t)[0]
+        
+        nabla_phi = vmap(
+            lambda params, x, t: jax.jacrev(phi_fn, argnums=1)(params, x, t)[0],
+            in_axes=(None, 0, 0)
+        )(params, x, t)
+        dphi_dx = nabla_phi[:, 0]
+        return jnp.mean(dphi_dx**2), {}
 
     def loss_pf_energy(self, params, batch, *args, **kwargs):
         x, t = batch
@@ -200,7 +213,8 @@ loss_terms = [
     # "bc_top_ux",
     # "bc_top_uy",
     "bc_crack",
-    "bc_sigmax",
+    "bc_free_disp",
+    "bc_free_phi",
     "irr",
     # "complementarity"
     # "irr_pf",
@@ -272,11 +286,11 @@ for epoch in range(cfg.EPOCHS):
     # loss_fn = pinn.loss_fn_stress if pde_name == "stress" else pinn.loss_fn_pf
     loss_fn = getattr(pinn, f"loss_fn_{pde_name}")
 
-    # if epoch % cfg.STAGGER_PERIOD == 0:
-    if epoch % 10 == 0:
+    if epoch % cfg.STAGGER_PERIOD == 0:
+    # if epoch % 10 == 0:
         batch = sampler.sample(
-            fns=[pinn.psi],
-            # fns=[getattr(pinn, f"net_{pde_name}"),],
+            # fns=[pinn.psi],
+            fns=[getattr(pinn, f"net_{pde_name}"),],
             params=state.params,
             rar=pinn.cfg.RAR,
             model=pinn
