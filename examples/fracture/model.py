@@ -135,40 +135,40 @@ class PINN(nn.Module):
             self.cfg.DIM
         )
 
-    @partial(jit, static_argnums=(0,))
-    def net_stress(self, params, x, t):
-        # $$ \nabla\cdot[(1-\phi)^2 \sigma] = (1-\phi)^2 \nabla\cdot\sigma - 2(1-\phi)\sigma\cdot\nabla\phi = 0 $$
-        phi, _ = self.net_u(params, x, t)
-        # sigma[i,j]: sigma_ij
-        sigma = self.sigma(params, x, t)
-        # nabla_phi[i]: dphi / dx_i
-        nabla_phi = jax.jacrev(lambda x, t: self.net_u(params, x, t)[0], argnums=0)(
-            x, t
-        )[0]
-        # jac_sigma[i,j,k]: dsigma_ij / dx_k
-        jac_sigma_x = jax.jacrev(self.sigma, argnums=1)(params, x, t)
-        # div_sigma[i]: dsigma_ij / dx_i
-        div_sigma = jnp.einsum("ijj->i", jac_sigma_x)
-        # sigma_cdot_nabla_phi[i]: sigma_ij * dphi / dx_j
-        sigma_cdot_nabla_phi = jnp.einsum("ij,j->i", sigma, nabla_phi)
-        phi_info = jax.lax.stop_gradient(phi)
-        stress = (1 - phi_info) ** 2 * div_sigma - 2 * (1 - phi_info) * sigma_cdot_nabla_phi
-
-        # stress = jnp.sum(jnp.abs(stress), axis=-1)
-        # stress = jnp.sqrt(jnp.sum(stress**2, axis=-1))
-
-        return stress / self.cfg.STRESS_PRE_SCALE
-
     # @partial(jit, static_argnums=(0,))
     # def net_stress(self, params, x, t):
-    #     def damaged_sigma(x, t):
-    #         phi, _ = self.net_u(params, x, t)
-    #         sigma = self.sigma(params, x, t)
-    #         return (1 - phi) ** 2 * sigma
+    #     # $$ \nabla\cdot[(1-\phi)^2 \sigma] = (1-\phi)^2 \nabla\cdot\sigma - 2(1-\phi)\sigma\cdot\nabla\phi = 0 $$
+    #     phi, _ = self.net_u(params, x, t)
+    #     # sigma[i,j]: sigma_ij
+    #     sigma = self.sigma(params, x, t)
+    #     # nabla_phi[i]: dphi / dx_i
+    #     nabla_phi = jax.jacrev(lambda x, t: self.net_u(params, x, t)[0], argnums=0)(
+    #         x, t
+    #     )[0]
+    #     # jac_sigma[i,j,k]: dsigma_ij / dx_k
+    #     jac_sigma_x = jax.jacrev(self.sigma, argnums=1)(params, x, t)
+    #     # div_sigma[i]: dsigma_ij / dx_i
+    #     div_sigma = jnp.einsum("ijj->i", jac_sigma_x)
+    #     # sigma_cdot_nabla_phi[i]: sigma_ij * dphi / dx_j
+    #     sigma_cdot_nabla_phi = jnp.einsum("ij,j->i", sigma, nabla_phi)
+    #     phi_info = jax.lax.stop_gradient(phi)
+    #     stress = (1 - phi_info) ** 2 * div_sigma - 2 * (1 - phi_info) * sigma_cdot_nabla_phi
 
-    #     div_damaged_sigma = jax.jacrev(damaged_sigma, argnums=0)(x, t)
-    #     stress = jnp.einsum("ijj->i", div_damaged_sigma)
+    #     # stress = jnp.sum(jnp.abs(stress), axis=-1)
+    #     # stress = jnp.sqrt(jnp.sum(stress**2, axis=-1))
+
     #     return stress / self.cfg.STRESS_PRE_SCALE
+
+    @partial(jit, static_argnums=(0,))
+    def net_stress(self, params, x, t):
+        def damaged_sigma(x, t):
+            phi, _ = self.net_u(params, x, t)
+            sigma = self.sigma(params, x, t)
+            return (1 - phi) ** 2 * sigma
+
+        div_damaged_sigma = jax.jacrev(damaged_sigma, argnums=0)(x, t)
+        stress = jnp.einsum("ijj->i", div_damaged_sigma)
+        return stress / self.cfg.STRESS_PRE_SCALE
         # return jnp.linalg.norm(stress) / self.cfg.STRESS_PRE_SCALE
 
     def net_stress_x(self, params, x, t):
