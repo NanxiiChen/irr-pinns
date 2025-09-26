@@ -17,8 +17,8 @@ class Config:
 
     DOMAIN = ((-0.5, 0.5), (-0.5, 0.5), (-0.5, 0.5), (0, 1.0))
     DATA_PATH = "./data/ice-melting/"
-    LOG_DIR = "/root/tf-logs"
-    PREFIX = "ice-melting/irr"
+    LOG_DIR = "/root/autodl-tmp/tf-logs"
+    PREFIX = "ice-melting/noirr"
     TS = [0.000, 2.0000, 4.000, 5.000]
 
     NUM_LAYERS = 3
@@ -29,7 +29,7 @@ class Config:
     ARCH_NAME = "mlp"
     FOURIER_EMB = True
     CAUSAL_WEIGHT = True
-    IRR = True
+    IRR = False
 
     LAMBDA = 5
     NN = 64

@@ -88,7 +88,7 @@ class PINN(nn.Module):
         else:
             return self.causal_weightor.compute_causal_loss(
                 res,
-                t,
+                jnp.stack((t.reshape(-1),), axis=0),
                 eps,
             )
 

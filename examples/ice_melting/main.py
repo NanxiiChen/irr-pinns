@@ -103,6 +103,22 @@ for epoch in range(cfg.EPOCHS):
         )
         cfg.CAUSAL_CONFIGS.update({f"eps": new_eps})
 
+
+    metrics_tracker.register_scalars(
+        epoch,
+        names=[
+            "loss/weighted",
+            f"loss/pde",
+            "loss/ic",
+            "loss/irr",
+            f"weight/pde",
+            "weight/ic",
+            "weight/irr",
+            "error/error",
+        ],
+        values=[weighted_loss, *loss_components, *weight_components, error],
+    )
+        
     if epoch % cfg.STAGGER_PERIOD == 0:
 
         ckpt.save(log_path + f"/model-{epoch}", state)
@@ -126,20 +142,6 @@ for epoch in range(cfg.EPOCHS):
             f"Loss_pde: {loss_components[0]:.2e}, "
         )
 
-        metrics_tracker.register_scalars(
-            epoch,
-            names=[
-                "loss/weighted",
-                f"loss/pde",
-                "loss/ic",
-                "loss/irr",
-                f"weight/pde",
-                "weight/ic",
-                "weight/irr",
-                "error/error",
-            ],
-            values=[weighted_loss, *loss_components, *weight_components, error],
-        )
         metrics_tracker.register_figure(epoch, fig, "error")
         plt.close(fig)
 
