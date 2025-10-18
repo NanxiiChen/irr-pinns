@@ -233,7 +233,8 @@ state = create_train_state(
     decay_every=cfg.DECAY_EVERY,
     xdim=cfg.DIM,
     optimizer=cfg.OPTIMIZER,
-    end_value=1e-5
+    end_value=1e-5,
+    grad_clip=None,
 )
 
 
@@ -262,7 +263,7 @@ sampler = FractureSampler(
 )
 
 stagger = StaggerSwitch(
-    pde_names=["pf", "stress", "pf"],
+    pde_names=["stress", "pf",],
     stagger_period=cfg.STAGGER_PERIOD
 )
 

@@ -21,11 +21,20 @@ def create_train_state(model, rng, lr, **kwargs):
     scheduler = optax.exponential_decay(lr, decay_every, decay, 
                                         staircase=False, 
                                         end_value=kwargs.get("end_value", 1e-5))
+    grad_clip = kwargs.get("grad_clip", 1.0)
     if opt_method == "adam":
-        optimizer = optax.chain(
-            optax.clip_by_global_norm(1.0),
-            optax.adam(scheduler),
-        )
+        # optimizer = optax.chain(
+        #     # optax.clip_by_global_norm(1.0),
+        #     # optax.per_example_layer_norm_clip(1.0),
+        #     optax.adam(scheduler),
+        # )
+        if grad_clip is not None:
+            optimizer = optax.chain(
+                optax.clip_by_global_norm(grad_clip),
+                optax.adam(scheduler),
+            )
+        else:
+            optimizer = optax.adam(scheduler)
     elif opt_method == "soap":
         from .optimizer import soap
         optimizer = soap(

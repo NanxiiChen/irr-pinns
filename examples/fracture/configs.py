@@ -5,11 +5,11 @@ class Config:
     EPOCHS = 100000
     N_SAMPLES = 15
     ADAPTIVE_SAMPLES = 500
-    ADAPTIVE_BASE_RATE = 6
+    ADAPTIVE_BASE_RATE = 10
     LR = 5e-4
     DECAY = 0.9
     DECAY_EVERY = 1000
-    STAGGER_PERIOD = 25
+    STAGGER_PERIOD = 5
     EMB_SCALE = (1.0, 1.0)  # emb sacle for (x, t)
     EMB_DIM = 128
 
@@ -52,7 +52,7 @@ class Config:
     Tc = 1.0
     DISP_PRE_SCALE = 1e3
     STRESS_PRE_SCALE = 1e4
-    PF_PRE_SCALE = 1e2
+    PF_PRE_SCALE = 5e1
     PF_EPS = 0.0
 
     CAUSAL_CONFIGS = {
