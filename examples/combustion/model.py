@@ -158,6 +158,7 @@ class PINN(nn.Module):
         weights = self.grad_norm_weights(grads)
         if not self.cfg.IRR:
             weights = weights.at[-1].set(0.0)
+        weights = weights.at[-1].set(0.1)
         # weights = weights.at[2].set(3* weights[2])  # PDE loss is more important
 
         return jnp.sum(losses * weights), (losses, weights, aux_vars)
