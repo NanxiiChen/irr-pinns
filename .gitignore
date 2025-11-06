@@ -9,9 +9,12 @@ data/diffusion/
 eval copy.ipynb
 demo/
 debug/
+fisher/
 output/
 demo.*
 logs/
+eval.ipynb
+eval-n.ipynb
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
