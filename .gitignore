@@ -17,6 +17,7 @@ eval.ipynb
 eval-n.ipynb
 figures-n/
 fonts/
+logs-eval/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
