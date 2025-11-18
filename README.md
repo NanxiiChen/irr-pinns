@@ -59,16 +59,3 @@ The following table summarizes the relative errors L2 (%) achieved by our irreve
 
 *Relative errors calculated as L² norm relative to finite element method (FEM) reference solutions*
 
-
-## Citation
-
-If you find this work useful, please cite our paper:
-
-```bibtex
-@article{chen2024enforcing,
-  title={Enforcing hidden physics in physics-informed neural networks},
-  author={Chen, Nanxi and Cui, Chuanjie and others},
-  journal={arXiv preprint},
-  year={2024}
-}
-```
