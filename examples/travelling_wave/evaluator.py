@@ -38,7 +38,8 @@ def evaluate1D(pinn, params, data_path, ts):
 
     ax1 = fig.add_subplot(gs[0, 1])
     diff = jnp.abs(sol - pred)
-    error = jnp.mean(diff**2)
+    # error = jnp.mean(diff**2)
+    l2_error = jnp.linalg.norm(sol - pred) / jnp.linalg.norm(sol)
     im1 = ax1.imshow(
         diff,
         extent=[mesh.min(), mesh.max(), times.min(), times.max()],
@@ -48,7 +49,7 @@ def evaluate1D(pinn, params, data_path, ts):
         vmin=0.0,
         vmax=1.0
     )
-    ax1.set_title(f"Error (MSE={error:.2e})")
+    ax1.set_title(f"Error (MSE={l2_error:.2e})")
 
     ax2 = fig.add_subplot(gs[1, :])
     for idx, t in enumerate(ts):
@@ -135,4 +136,4 @@ def evaluate1D(pinn, params, data_path, ts):
 
 
 
-    return fig, error
+    return fig, l2_error

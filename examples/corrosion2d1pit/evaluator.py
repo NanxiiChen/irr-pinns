@@ -13,7 +13,9 @@ def evaluate2D(pinn, params, mesh, ref_path, ts, **kwargs):
     ylim = kwargs.get("ylim", (0, 0.5))
     Lc = kwargs.get("Lc", 1e-4)
     Tc = kwargs.get("Tc", 10.0)
-    error = 0
+    # error = 0
+    sols = jnp.zeros((mesh.shape[0], len(ts), 1))
+    preds = jnp.zeros((mesh.shape[0], len(ts), 1))
     mesh /= Lc
     for idx, tic in enumerate(ts):
         t = jnp.ones_like(mesh[:, 0:1]) * tic / Tc
@@ -60,9 +62,12 @@ def evaluate2D(pinn, params, mesh, ref_path, ts, **kwargs):
         # the ticks of the colorbar are in .2f format
         plt.colorbar(error_bar, cax=ax)
         ax.yaxis.set_major_formatter(plt.FormatStrFormatter("%.2f"))
+        sols = sols.at[:, idx, :].set(ref_sol)
+        preds = preds.at[:, idx, :].set(pred)
 
-        error += jnp.mean((pred - ref_sol) ** 2)
+        # error += jnp.mean((pred - ref_sol) ** 2)
 
     plt.tight_layout()
-    error /= len(ts)
-    return fig, error
+    # error /= len(ts)
+    l2_error = jnp.linalg.norm(sols - preds) / jnp.linalg.norm(sols)
+    return fig, l2_error

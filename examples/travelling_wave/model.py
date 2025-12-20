@@ -123,7 +123,15 @@ class PINN(nn.Module):
         weights = self.grad_norm_weights(grads)
         if not self.cfg.IRR:
             weights = weights.at[-1].set(0.0)
-
+            
+        # compute cosine similarity between gradients
+        # flat_grads = jnp.stack([jax.tree_util.tree_leaves(g) for g in grads])
+        # flat_grads = jnp.stack([jax.flatten_util.ravel_pytree(g)[0] for g in grads])
+        # grad_norms = jnp.linalg.norm(flat_grads, axis=1, keepdims=True)
+        # normed_grads = flat_grads / (grad_norms + 1e-8)
+        # cos_sim_matrix = jnp.matmul(normed_grads, normed_grads.T)
+        # aux_vars["cos_sim_matrix"] = cos_sim_matrix
+        
         return jnp.sum(weights * losses), (losses, weights, aux_vars)
 
     @partial(jit, static_argnums=(0,))

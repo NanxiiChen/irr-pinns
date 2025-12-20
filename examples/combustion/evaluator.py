@@ -21,7 +21,8 @@ def evaluate1D(pinn, params, mesh, ref_path, **kwargs):
     ax.plot(mesh, T, label="PINN")
     ax.plot(mesh, T_ref, label="FEM", ls="--")
     ax.legend()
-    error = jnp.mean((T - T_ref) ** 2) ** 0.5
+    # error = jnp.mean((T - T_ref) ** 2) ** 0.5
+    l2_error = jnp.linalg.norm(T - T_ref) / jnp.linalg.norm(T_ref)
 
     ax = axes[1]
     yf_ref = jnp.load(f"{ref_path}/YF.npy")
@@ -58,6 +59,6 @@ def evaluate1D(pinn, params, mesh, ref_path, **kwargs):
     ax.plot(mesh, p_ref, label="FEM", ls="--")
     ax.legend()
     
-    return fig, error
+    return fig, l2_error
 
 

@@ -1,7 +1,7 @@
 import math
 
 class Config:
-    EPOCHS = 50000
+    EPOCHS = 40000
     N_SAMPLES = 20
     ADAPTIVE_SAMPLES = 2000
     ADAPTIVE_BASE_RATE = 10
@@ -20,7 +20,7 @@ class Config:
     TS = [0.0, 5.0, 10.0, 15.0, 20.0]
 
     NUM_LAYERS = 6
-    HIDDEN_DIM = 64
+    HIDDEN_DIM = 100
     OUT_DIM = 1
 
     ACT_NAME = "snake"

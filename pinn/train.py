@@ -43,6 +43,9 @@ def create_train_state(model, rng, lr, **kwargs):
             b2=0.999,
             precondition_frequency=2,
         )
+    elif opt_method == "cadam":
+        from .optimizer import cautious_adamw
+        optimizer = cautious_adamw(scheduler)    
     elif opt_method == "rprop":
         from .optimizer import rprop
         # RPROP不使用学习率调度器，而是自适应调整步长

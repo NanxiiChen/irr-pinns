@@ -62,7 +62,11 @@ state = create_train_state(
     decay_every=cfg.DECAY_EVERY,
     xdim=len(cfg.DOMAIN) - 1,
     end_value=1e-4,
-    opt_method=cfg.OPTIMIZER
+    opt_method=cfg.OPTIMIZER,
+    # grad_clip=None, 
+    # no apparent difference observed on `grad_clip` setting,
+    # for some params settings (e.g. network, sampling),
+    # it helps stabilize training
 )
 
 if cfg.RESUME is not None:
@@ -114,7 +118,7 @@ for epoch in range(cfg.EPOCHS):
         cfg.CAUSAL_CONFIGS.update({"eps": new_eps})
 
     if epoch % cfg.SAVE_EVERY == 0:
-        ckpt.save(log_path + f"/model-{epoch}", state)
+        # ckpt.save(log_path + f"/model-{epoch}", state)
 
         fig, error = evaluate1D(
             pinn,
@@ -132,11 +136,13 @@ for epoch in range(cfg.EPOCHS):
             + [f"loss/{term}" for term in loss_terms]
             + [f"weight/{term}" for term in loss_terms]
             + ["error"],
+            # + ['cos_sim'],
             values=[
                 weighted_loss,
                 *loss_components,
                 *weight_components,
                 error,
+                # aux_vars['cos_sim_matrix'][0, -1]
             ]
         )
 
