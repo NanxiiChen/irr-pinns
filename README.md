@@ -2,6 +2,8 @@
 
 This repository implements a novel framework for training Physics-Informed Neural Networks (PINNs) that explicitly enforces **hidden irreversibility constraints** in physical systems. Our approach addresses a critical gap in conventional PINNs by incorporating the fundamental directionality implied by the Second Law of Thermodynamics into the training process.
 
+![masterfigure](img/masterfigure.png)
+
 ## Key Contributions
 
 - A systematic identification of irreversibility as a hidden physical principle that is often violated in conventional PINNs
@@ -59,3 +61,19 @@ The following table summarizes the relative errors L2 (%) achieved by our irreve
 
 *Relative errors calculated as L² norm relative to finite element method (FEM) reference solutions*
 
+
+## Citation
+
+If you find this work useful in your research, please consider citing:
+
+```bibtex
+@misc{chen2025enforcinghiddenphysicsphysicsinformed,
+      title={Enforcing hidden physics in physics-informed neural networks}, 
+      author={Nanxi Chen and Sifan Wang and Rujin Ma and Airong Chen and Chuanjie Cui},
+      year={2025},
+      eprint={2511.14348},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/2511.14348}, 
+}
+```
