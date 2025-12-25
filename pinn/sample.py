@@ -10,9 +10,14 @@ def mesh_flat(*args):
 
 def lhs_sampling(mins, maxs, num, key):
     dim = len(mins)
-    u = (jnp.arange(0, num) + 0.5) / num  # 每个区间的中点
-
     keys = random.split(key, dim)
+    # Centered LHS
+    u = (jnp.arange(0, num) + 0.5) / num  # Centers of intervals
+    
+    # Alternative: Randomly shifted LHS
+    # shift_key, *keys = random.split(key, dim + 1)
+    # u = (jnp.arange(0, num) + random.uniform(shift_key, (num,))) / num 
+    
     result = jnp.zeros((num, dim))
 
     for i in range(dim):
@@ -104,6 +109,20 @@ class Sampler:
         for idx, fn in enumerate(fns):
             res = jax.lax.stop_gradient(vmap(fn, in_axes=(None, 0, 0))(params, x, t))
             _, indices = jax.lax.top_k(jnp.abs(res), self.adaptive_kw["num"])
+            # Alternative for `top_k`: soft top-k selection with softmax
+            # score: l2 normalized residuals
+            # score = jnp.abs(res) / (jnp.linalg.norm(res) + 1e-8)
+            # beta = 2.0
+            # logits = beta * score
+            # probs = jax.nn.softmax(logits)
+            # key_choice, self.key = random.split(self.key)
+            # indices = random.choice(
+            #     key_choice, 
+            #     a=adaptive_base.shape[0], 
+            #     shape=(self.adaptive_kw["num"],), 
+            #     p=probs, 
+            #     replace=False
+            # )
             selected_points = adaptive_base[indices]
             rar_points = rar_points.at[
                 idx * self.adaptive_kw["num"] : (idx + 1) * self.adaptive_kw["num"], :
