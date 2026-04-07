@@ -35,6 +35,7 @@ class PINN(nn.Module):
             fourier_emb=self.cfg.FOURIER_EMB,
             emb_scale=self.cfg.EMB_SCALE,
             emb_dim=self.cfg.EMB_DIM,
+            time_film=self.cfg.TIME_FILM,
         )
         self.causal_weightor = causal_weightor
 
@@ -242,7 +243,7 @@ class PINN(nn.Module):
         return jnp.sum(weights * losses), (losses, weights, aux_vars)
 
     @partial(jit, static_argnums=(0,))
-    def grad_norm_weights(self, grads: list, eps=1e-6):
+    def grad_norm_weights(self, grads: list, eps=1e-4):
         def tree_norm(pytree):
             squared_sum = sum(jnp.sum(x**2) for x in jax.tree_util.tree_leaves(pytree))
             return jnp.sqrt(squared_sum)

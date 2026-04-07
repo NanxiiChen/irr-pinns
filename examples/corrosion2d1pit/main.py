@@ -1,7 +1,8 @@
 """
 Sharp-PINNs for pitting corrosion with 2d-1pit
 """
-
+import os
+os.environ["XLA_FLAGS"] = "--xla_gpu_enable_triton_gemm=false"
 import datetime
 import sys
 import time
@@ -133,7 +134,8 @@ for epoch in range(cfg.EPOCHS):
     if epoch % cfg.STAGGER_PERIOD == 0:
 
         # save the model
-        ckpt.save(log_path + f"/model-{epoch}", state)
+        if epoch % 500 == 0:
+            ckpt.save(log_path + f"/model-{epoch}", state)
 
         fig, error = evaluate2D(
             pinn,
