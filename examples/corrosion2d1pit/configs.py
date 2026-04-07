@@ -32,6 +32,7 @@ class Config:
     FOURIER_EMB = True
     CAUSAL_WEIGHT = True
     IRR = True
+    TIME_FILM = True
 
     ALPHA_PHI = 1.03e-4
     OMEGA_PHI = 1.76e7
