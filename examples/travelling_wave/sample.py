@@ -42,7 +42,7 @@ class GenesPropSampler(Sampler):
             key=key,
         )
         x_local = lhs_sampling(
-            mins=[-2,], maxs=[2,],
+            mins=[-0.2,], maxs=[0.2,],
             num=self.n_samples*10, key=self.key
         )
         x = jnp.concatenate([x, x_local], axis=0)
