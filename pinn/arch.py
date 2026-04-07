@@ -179,6 +179,7 @@ class ModifiedMLP(nn.Module):
     fourier_emb: bool = True
     emb_scale: tuple = (2.0, 2.0)
     emb_dim: int = 64
+    time_film: bool = False
 
 
     def setup(self):
@@ -193,12 +194,14 @@ class ModifiedMLP(nn.Module):
             else:
                 t_emb = FourierEmbedding(self.emb_scale[1], self.emb_dim)(t)
                 x_emb = FourierEmbedding(self.emb_scale[0], self.emb_dim)(x)
-                x = jnp.concatenate([x_emb, t_emb], axis=-1)
-                # another alternative to combine spatial and temporal features: FiLM
-                # to be explored in future work
-                # film = Dense(t_emb.shape[-1], 2 * self.hidden_dim)(t_emb)
-                # scale, shift = jnp.split(film, 2, axis=-1)
-                # x = scale * x_emb + shift
+                if not self.time_film:
+                    x = jnp.concatenate([x_emb, t_emb], axis=-1)
+                else:
+                    # another alternative to combine spatial and temporal features: FiLM
+                    # to be explored in future work
+                    film = Dense(t_emb.shape[-1], 4*self.emb_dim)(t_emb)
+                    scale, shift = jnp.split(film, 2, axis=-1)
+                    x = x_emb * (scale + 1) + shift
         else:
             x = jnp.concatenate([x, t], axis=-1)
 
