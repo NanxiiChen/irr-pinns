@@ -95,11 +95,11 @@ def scale_by_soap(
     def init_fn(params: Updates) -> SOAPState:
         exp_avg = otu.tree_zeros_like(params)
         exp_avg_sq = otu.tree_zeros_like(params)
-        GG = jtu.tree_map(
+        GG = jtu.tree.map(
             lambda p: init_conditioner(p, max_precond_dim),
             params,
         )
-        Q = jtu.tree_map(
+        Q = jtu.tree.map(
             lambda p: init_conditioner(p, max_precond_dim),
             params,
         )
@@ -115,13 +115,13 @@ def scale_by_soap(
         updates: Updates,
         state: SOAPState,
     ) -> tuple[Updates, SOAPState]:
-        new_GG = jtu.tree_map(
+        new_GG = jtu.tree.map(
             lambda grad, gg: update_preconditioner(grad, gg, shampoo_beta),
             updates,
             state.GG,
         )
 
-        new_Q = jtu.tree_map(
+        new_Q = jtu.tree.map(
             lambda gg: get_orthogonal_matrix(gg),
             new_GG,
         )
@@ -136,7 +136,7 @@ def scale_by_soap(
         state: SOAPState,
     ) -> tuple[Updates, SOAPState]:
         # Project gradients
-        grad_projected = jtu.tree_map(
+        grad_projected = jtu.tree.map(
             lambda grad, q: project(grad, q, precision),
             updates,
             state.Q,
@@ -146,14 +146,14 @@ def scale_by_soap(
         exp_avg = otu.tree_update_moment(updates, state.exp_avg, b1, 1)
         exp_avg_sq = otu.tree_update_moment_per_elem_norm(grad_projected, state.exp_avg_sq, b2, 2)
 
-        exp_avg_projected = jtu.tree_map(
+        exp_avg_projected = jtu.tree.map(
             lambda e, q: project(e, q, precision),
             exp_avg,
             state.Q,
         )
 
         # Project back
-        norm_updates = jtu.tree_map(
+        norm_updates = jtu.tree.map(
             lambda e_avg, e_avg_sq, q: project_back(e_avg / (jnp.sqrt(e_avg_sq) + eps), q, precision),
             exp_avg_projected,
             exp_avg_sq,
@@ -165,13 +165,13 @@ def scale_by_soap(
         corr = jnp.sqrt(bc2) / bc1
 
         # Bias correction on the updates
-        norm_updates = jtu.tree_map(
+        norm_updates = jtu.tree.map(
             lambda p: p * corr,
             norm_updates,
         )
 
         # Update the preconditioner
-        new_GG = jtu.tree_map(
+        new_GG = jtu.tree.map(
             lambda grad, gg: update_preconditioner(grad, gg, shampoo_beta, precision),
             updates,
             state.GG,
@@ -180,25 +180,25 @@ def scale_by_soap(
         # Update the orthogonal matrix / exp_avg_sq
         new_Q_and_exp_avg_sq = jax.lax.cond(
             state.count % precondition_frequency == 0,
-            lambda: jtu.tree_map(
+            lambda: jtu.tree.map(
                 lambda e, gg, q: get_orthogonal_matrix_QR(gg, q, e, precision),
                 exp_avg_sq,
                 new_GG,
                 state.Q,
             ),
-            lambda: jtu.tree_map(
+            lambda: jtu.tree.map(
                 lambda e, q: (q, e),
                 state.exp_avg_sq,
                 state.Q,
             ),
         )
         ## Unpack the results
-        new_Q = jtu.tree_map(
+        new_Q = jtu.tree.map(
             lambda _, x: x[0],
             updates,
             new_Q_and_exp_avg_sq,
         )
-        exp_avg_sq = jtu.tree_map(
+        exp_avg_sq = jtu.tree.map(
             lambda _, x: x[1],
             updates,
             new_Q_and_exp_avg_sq,
@@ -367,14 +367,14 @@ def rprop(
     """RPROP (Resilient Backpropagation) 优化器。"""
     
     def init_fn(params):
-        step_sizes = jax.tree_map(lambda p: jnp.ones_like(p) * init_step_size, params)
-        prev_grads = jax.tree_map(jnp.zeros_like, params)
+        step_sizes = jax.tree.map(lambda p: jnp.ones_like(p) * init_step_size, params)
+        prev_grads = jax.tree.map(jnp.zeros_like, params)
         return RPROPState(step_sizes=step_sizes, prev_grads=prev_grads, step=0)
     
     def first_step(args):
         grads, state = args
         # 仅使用符号更新，步长保持不变
-        updates = jax.tree_map(
+        updates = jax.tree.map(
             lambda g, s: -jnp.sign(g) * s,
             grads, state.step_sizes
         )
@@ -383,13 +383,13 @@ def rprop(
     def later_steps(args):
         grads, state = args
         # 计算梯度符号乘积
-        sign_products = jax.tree_map(
+        sign_products = jax.tree.map(
             lambda g, pg: g * pg,
             grads, state.prev_grads
         )
         
         # 更新步长
-        new_step_sizes = jax.tree_map(
+        new_step_sizes = jax.tree.map(
             lambda sp, s: jnp.where(
                 sp > 0,  # 符号相同，增加步长
                 jnp.minimum(s * eta_plus, step_size_max),
@@ -403,13 +403,13 @@ def rprop(
         )
         
         # 当符号改变时，梯度置为0（防止振荡）
-        effective_grads = jax.tree_map(
+        effective_grads = jax.tree.map(
             lambda g, sp: jnp.where(sp < 0, 0.0, g),
             grads, sign_products
         )
         
         # 计算更新
-        updates = jax.tree_map(
+        updates = jax.tree.map(
             lambda g, s: -jnp.sign(g) * s,
             effective_grads, new_step_sizes
         )
@@ -494,7 +494,7 @@ def lbfgs(
         
         if value_fun is None or grad_fun is None:
             # 如果没有提供值函数或梯度函数，返回零更新
-            return jax.tree_map(jnp.zeros_like, params), state._replace(params=params)
+            return jax.tree.map(jnp.zeros_like, params), state._replace(params=params)
         
         # 创建值和梯度函数
         def value_and_grad_fn(params):
@@ -519,7 +519,7 @@ def lbfgs(
         new_params, solver_state = solver.run(params)
         
         # 计算更新
-        updates = jax.tree_map(
+        updates = jax.tree.map(
             lambda new_p, p: new_p - p, 
             new_params, params
         )
