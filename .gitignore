@@ -9,7 +9,7 @@ data/diffusion/
 eval copy.ipynb
 demo/
 debug/
-fisher/
+examples/fisher/
 output/
 demo.*
 logs/
@@ -19,6 +19,9 @@ figures-n/
 fonts/
 logs-eval/
 figures/
+ablation.ipynb
+data/corrosion-2d-1pit/thickness*
+data/travelling-wave/r_*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
