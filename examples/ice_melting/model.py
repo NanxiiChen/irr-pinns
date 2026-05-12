@@ -33,6 +33,7 @@ class PINN(nn.Module):
             fourier_emb=self.cfg.FOURIER_EMB,
             emb_scale=self.cfg.EMB_SCALE,
             emb_dim=self.cfg.EMB_DIM,
+            time_film=self.cfg.TIME_FILM,
         )
         self.causal_weightor = causal_weightor
 
@@ -93,8 +94,8 @@ class PINN(nn.Module):
             )
 
 
-    @partial(jit, static_argnums=(0,))
-    def loss_fn(self, params, batch, eps):
+    @partial(jit, static_argnums=(0,5))
+    def loss_fn(self, params, batch, eps, last_weights, update_weights=False, ):
         losses = []
         grads = []
         for idx, (loss_item_fn, batch_item) in enumerate(
@@ -110,14 +111,23 @@ class PINN(nn.Module):
                 )
             losses.append(loss_item)
             grads.append(grad_item)
-
-        losses = jnp.array(losses)
-        weights = self.grad_norm_weights(grads)
+        
+        if update_weights:
+            weights = self.grad_norm_weights(grads)
+        else:
+            weights = last_weights
         # weights = jax.lax.stop_gradient(jnp.array([3.0, 1.0, 1.0]))
         if not self.cfg.IRR:
             weights = weights.at[-1].set(0.0)
-
-        return jnp.sum(weights * losses), (losses, weights, aux)
+            
+        total_loss = jnp.sum(jnp.array(losses) * weights)
+        
+        total_grad = jax.tree.map(
+            lambda *gs: jnp.sum(jnp.stack([w * g for w, g in zip(weights, gs)]), axis=0),
+            *grads
+        )
+        
+        return (total_loss, (losses, weights, aux)), total_grad
 
     @partial(jit, static_argnums=(0,))
     def grad_norm_weights(self, grads: list, eps=1e-6):

@@ -41,6 +41,8 @@ def evaluate3D(pinn, params, mesh, ref_path, ts, **kwargs):
         )
         ax.set_axis_off()
 
+    sols = jnp.zeros((mesh.shape[0], len(ts)))
+    preds = jnp.zeros((mesh.shape[0], len(ts)))
     for idx, tic in enumerate(ts):
         t = jnp.ones_like(mesh[:, 0:1]) * tic / Tc
         pred = vmap(pinn.net_u, in_axes=(None, 0, 0))(params, mesh, t).squeeze()
@@ -128,7 +130,6 @@ def evaluate3D(pinn, params, mesh, ref_path, ts, **kwargs):
             ylim=ylim,
             zlim=zlim,
         )
-        error += jnp.mean(diff**2)
 
         ax.set_axis_off()
         ax.invert_zaxis()
@@ -158,7 +159,16 @@ def evaluate3D(pinn, params, mesh, ref_path, ts, **kwargs):
         ax = fig.add_subplot(gs[3, idx + 1])
         fig.colorbar(error_bar, ax=ax, orientation="horizontal")
         ax.set_axis_off()
+        
+        sols = sols.at[:, idx].set(ref_sol.reshape(-1))
+        preds = preds.at[:, idx].set(pred.reshape(-1))
 
-    error /= len(ts)
-    return fig, error
+    error = jnp.linalg.norm(preds - sols) / jnp.linalg.norm(sols) # all the points
+    
+    mask = (sols > -0.9) & (sols < 0.9) # only the points near the interface
+    error_interface = jnp.linalg.norm(preds[mask] - sols[mask]) / jnp.linalg.norm(sols[mask])
+    
+    
+
+    return fig, error, error_interface
 

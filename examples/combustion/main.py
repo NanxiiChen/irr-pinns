@@ -163,8 +163,8 @@ for epoch in range(cfg.EPOCHS):
         freeze_eigen=freeze_sl,
     )
 
-    if epoch % 100 == 0:
-        ckpt.save(log_path + f"/model-{epoch}", state)
+    if epoch % 500 == 0:
+        # ckpt.save(log_path + f"/model-{epoch}", state)
 
         fig, error = evaluate1D(
             pinn,

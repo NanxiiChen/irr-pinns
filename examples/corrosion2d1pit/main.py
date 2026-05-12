@@ -28,7 +28,6 @@ from examples.corrosion2d1pit import (
 from pinn import (
     CausalWeightor,
     MetricsTracker,
-    train_step,
     create_train_state,
     StaggerSwitch,
 )
@@ -105,6 +104,19 @@ sampler = CorrosionSampler(
     },
 )
 
+
+@partial(jit, static_argnums=(0,))
+def train_step_with_grad(loss_fn, state, batch, eps):
+    params = state.params
+    (weighted_loss, (loss_components, weight_components, aux_vars)), grads = \
+        loss_fn(params, batch, eps)
+    # handle NaN or Inf values in gradients
+    grads = jax.tree.map(lambda g: jnp.nan_to_num(g, nan=0.0, posinf=0.0, neginf=0.0), grads)
+    new_state = state.apply_gradients(grads=grads)
+    return new_state, (weighted_loss, loss_components, weight_components, aux_vars)
+
+
+
 stagger = StaggerSwitch(pde_names=["ac", "ch"], stagger_period=cfg.STAGGER_PERIOD)
 
 start_time = time.time()
@@ -115,7 +127,7 @@ for epoch in range(cfg.EPOCHS):
     if epoch % cfg.STAGGER_PERIOD == 0:
         batch = sampler.sample(fns=[pinn.net_ac, pinn.net_ch], params=state.params)
 
-    state, (weighted_loss, loss_components, weight_components, aux_vars) = train_step(
+    state, (weighted_loss, loss_components, weight_components, aux_vars) = train_step_with_grad(
         loss_fn,
         state,
         batch,
@@ -131,12 +143,11 @@ for epoch in range(cfg.EPOCHS):
 
     stagger.step_epoch()
 
-    if epoch % cfg.STAGGER_PERIOD == 0:
+    if epoch % 200 == 0:
 
         # save the model
-        if epoch % 500 == 0:
-            ckpt.save(log_path + f"/model-{epoch}", state)
-
+        # if epoch % 500 == 0:
+            # ckpt.save(log_path + f"/model-{epoch}", state)
         fig, error = evaluate2D(
             pinn,
             state.params,

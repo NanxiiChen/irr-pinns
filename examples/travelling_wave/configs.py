@@ -8,7 +8,7 @@ class Config:
     LR = 1e-3
     DECAY = 0.9
     DECAY_EVERY = 500
-    SAVE_EVERY = 200
+    SAVE_EVERY = 500
     EMB_SCALE = (2.0, 2.0)  # emb sacle for (x, t)
     EMB_DIM = 128
 

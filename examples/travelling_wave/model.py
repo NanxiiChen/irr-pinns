@@ -132,7 +132,17 @@ class PINN(nn.Module):
         # cos_sim_matrix = jnp.matmul(normed_grads, normed_grads.T)
         # aux_vars["cos_sim_matrix"] = cos_sim_matrix
         
-        return jnp.sum(weights * losses), (losses, weights, aux_vars)
+        # return jnp.sum(weights * losses), (losses, weights, aux_vars)
+
+        total_loss = jnp.sum(jnp.array(losses) * weights)
+        
+        total_grad = jax.tree.map(
+            lambda *gs: jnp.sum(jnp.stack([w * g for w, g in zip(weights, gs)]), axis=0),
+            *grads
+        )
+        
+        return (total_loss, (losses, weights, aux_vars)), total_grad
+
 
     @partial(jit, static_argnums=(0,))
     def grad_norm_weights(self, grads: list, eps=1e-8):

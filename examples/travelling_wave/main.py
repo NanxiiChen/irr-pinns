@@ -93,6 +93,16 @@ sampler = GenesPropSampler(
     },
 )
 
+@partial(jit, static_argnums=(0,))
+def train_step_with_grad(loss_fn, state, batch, eps):
+    params = state.params
+    (weighted_loss, (loss_components, weight_components, aux_vars)), grads = \
+        loss_fn(params, batch, eps)
+    # handle NaN or Inf values in gradients
+    grads = jax.tree.map(lambda g: jnp.nan_to_num(g, nan=0.0, posinf=0.0, neginf=0.0), grads)
+    new_state = state.apply_gradients(grads=grads)
+    return new_state, (weighted_loss, loss_components, weight_components, aux_vars)
+
 start_time = time.time()
 for epoch in range(cfg.EPOCHS):
 
@@ -102,7 +112,7 @@ for epoch in range(cfg.EPOCHS):
             params=state.params,
         )
 
-    state, (weighted_loss, loss_components, weight_components, aux_vars) = train_step(
+    state, (weighted_loss, loss_components, weight_components, aux_vars) = train_step_with_grad(
         pinn.loss_fn,
         state,
         batch,

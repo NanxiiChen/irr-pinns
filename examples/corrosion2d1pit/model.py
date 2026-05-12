@@ -239,8 +239,15 @@ class PINN(nn.Module):
         weights = self.grad_norm_weights(grads)
         if not self.cfg.IRR:
             weights = weights.at[-1].set(0.0)
-
-        return jnp.sum(weights * losses), (losses, weights, aux_vars)
+            
+        total_loss = jnp.sum(jnp.array(losses) * weights)
+        
+        total_grad = jax.tree.map(
+            lambda *gs: jnp.sum(jnp.stack([w * g for w, g in zip(weights, gs)]), axis=0),
+            *grads
+        )
+        
+        return (total_loss, (losses, weights, aux_vars)), total_grad
 
     @partial(jit, static_argnums=(0,))
     def grad_norm_weights(self, grads: list, eps=1e-4):

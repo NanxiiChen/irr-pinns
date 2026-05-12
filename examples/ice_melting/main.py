@@ -24,12 +24,9 @@ from examples.ice_melting import (
 from pinn import (
     CausalWeightor,
     MetricsTracker,
-    train_step,
     create_train_state,
 )
 
-# from jax import config
-# config.update("jax_disable_jit", True)
 
 
 class IceMeltingPINN(PINN):
@@ -79,10 +76,29 @@ sampler = IceMeltingSampler(
 )
 
 
+@partial(jit, static_argnums=(0,5))
+def train_step(loss_fn, state, batch, eps, last_weights, update_weights=False):
+    params = state.params
+    # (weighted_loss, (loss_components, weight_components, aux_vars)), grads = (
+    #     jax.value_and_grad(loss_fn, has_aux=True)(params, batch, eps, last_weights, update_weights)
+    # )
+    (weighted_loss, (loss_components, weight_components, aux_vars)), grads = \
+        loss_fn(params, batch, eps, last_weights, update_weights)
+    # handle NaN or Inf values in gradients
+    grads = jax.tree.map(lambda g: jnp.nan_to_num(g, nan=0.0, posinf=0.0, neginf=0.0), grads)
+    new_state = state.apply_gradients(grads=grads)
+    return new_state, (weighted_loss, loss_components, weight_components, aux_vars)
+
+
+
+
 error = 0
 start_time = time.time()
+last_weights = jnp.ones(len(pinn.loss_fn_panel))
 for epoch in range(cfg.EPOCHS):
-
+    # update_weights = epoch % cfg.STAGGER_PERIOD == 0
+    update_weights = True
+    
     if epoch % cfg.STAGGER_PERIOD == 0:
         batch = sampler.sample(fns=(pinn.net_pde,), params=state.params)
 
@@ -91,7 +107,11 @@ for epoch in range(cfg.EPOCHS):
         state,
         batch,
         cfg.CAUSAL_CONFIGS["eps"],
+        last_weights,
+        update_weights,
     )
+    last_weights = weight_components
+    
     if cfg.CAUSAL_WEIGHT:
         # cfg.CAUSAL_CONFIGS.update(
         #     causal_weightor.update_causal_eps(aux["causal_weights"], cfg.CAUSAL_CONFIGS)
@@ -103,27 +123,12 @@ for epoch in range(cfg.EPOCHS):
         )
         cfg.CAUSAL_CONFIGS.update({f"eps": new_eps})
 
-
-    metrics_tracker.register_scalars(
-        epoch,
-        names=[
-            "loss/weighted",
-            f"loss/pde",
-            "loss/ic",
-            "loss/irr",
-            f"weight/pde",
-            "weight/ic",
-            "weight/irr",
-            "error/error",
-        ],
-        values=[weighted_loss, *loss_components, *weight_components, error],
-    )
+       
+    if epoch % 200 == 0:
         
-    if epoch % cfg.STAGGER_PERIOD == 0:
+        # ckpt.save(log_path + f"/model-{epoch}", state)
 
-        ckpt.save(log_path + f"/model-{epoch}", state)
-
-        fig, error = evaluate3D(
+        fig, error, error_interface = evaluate3D(
             pinn,
             state.params,
             jnp.load(f"{cfg.DATA_PATH}/mesh_points.npy"),
@@ -153,7 +158,22 @@ for epoch in range(cfg.EPOCHS):
             )
             metrics_tracker.register_figure(epoch, fig, "causal")
             plt.close(fig)
-
+            
+        metrics_tracker.register_scalars(
+            epoch,
+            names=[
+                "loss/weighted",
+                f"loss/pde",
+                "loss/ic",
+                "loss/irr",
+                f"weight/pde",
+                "weight/ic",
+                "weight/irr",
+                "error/error",
+                "error/interface",
+            ],
+            values=[weighted_loss, *loss_components, *weight_components, error, error_interface],
+        )
         metrics_tracker.flush()
 
 

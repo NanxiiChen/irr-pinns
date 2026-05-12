@@ -49,6 +49,7 @@ class MLP(nn.Module):
     fourier_emb: bool = True
     emb_scale: tuple = (2.0, 2.0)
     emb_dim: int = 64
+    time_film: bool = False
 
     def setup(self):
         self.act_fn = get_activation(self.act_name)
@@ -66,7 +67,15 @@ class MLP(nn.Module):
             )
             x = jnp.concatenate([x_emb, t_emb], axis=-1)
         else:
-            x = jnp.concatenate([x, t], axis=-1)
+            # x = jnp.concatenate([x, t], axis=-1)
+            if not self.time_film:
+                x = jnp.concatenate([x, t], axis=-1)
+            else:
+                # another alternative to combine spatial and temporal features: FiLM
+                # to be explored in future work
+                film = Dense(t_emb.shape[-1], 4*self.emb_dim)(t_emb)
+                scale, shift = jnp.split(film, 2, axis=-1)
+                x = x_emb * (scale + 1) + shift
 
         for _ in range(self.num_layers):
             x = Dense(x.shape[-1], self.hidden_dim)(x)
